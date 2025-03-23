@@ -159,6 +159,21 @@ export class ChunkedScene {
             );
             cube.castShadow = true;
             cube.receiveShadow = true;
+            
+            // Add physics for the cube
+            if (this.engine.activeEngines.physics) {
+                const cubeShape = new CANNON.Box(new CANNON.Vec3(5, 5, 5));
+                const cubeBody = this.engine.activeEngines.physics.createBody({
+                    mass: 10,
+                    position: new CANNON.Vec3(cube.position.x, cube.position.y, cube.position.z),
+                    shape: cubeShape
+                });
+                
+                // Store reference to the mesh and body for updates
+                cube.userData.physicsBody = cubeBody;
+                cubeBody.userData = { mesh: cube };
+            }
+            
             this.threeScene.add(cube);
         }
         
@@ -179,7 +194,35 @@ export class ChunkedScene {
             );
             sphere.castShadow = true;
             sphere.receiveShadow = true;
+            
+            // Add physics for the sphere
+            if (this.engine.activeEngines.physics) {
+                const sphereShape = new CANNON.Sphere(7);
+                const sphereBody = this.engine.activeEngines.physics.createBody({
+                    mass: 5,
+                    position: new CANNON.Vec3(sphere.position.x, sphere.position.y, sphere.position.z),
+                    shape: sphereShape
+                });
+                
+                // Store reference to the mesh and body for updates
+                sphere.userData.physicsBody = sphereBody;
+                sphereBody.userData = { mesh: sphere };
+            }
+            
             this.threeScene.add(sphere);
+        }
+        
+        // Add a ground physics body for terrain collision
+        if (this.engine.activeEngines.physics) {
+            const groundShape = new CANNON.Plane();
+            const groundBody = this.engine.activeEngines.physics.createBody({
+                mass: 0, // Static body
+                position: new CANNON.Vec3(0, -5, 0),
+                shape: groundShape
+            });
+            
+            // Rotate to make it horizontal
+            groundBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI/2);
         }
     }
     
@@ -230,6 +273,17 @@ export class ChunkedScene {
         // Update day/night cycle
         if (config.world.dayNightCycle && this.threeScene) {
             this.updateDayNightCycle(deltaTime);
+        }
+        
+        // Update physics objects to match their visual representation
+        if (this.engine.activeEngines.physics && this.threeScene) {
+            this.threeScene.traverse((object) => {
+                if (object.userData && object.userData.physicsBody) {
+                    const body = object.userData.physicsBody;
+                    object.position.copy(body.position);
+                    object.quaternion.copy(body.quaternion);
+                }
+            });
         }
         
         // Get current camera position

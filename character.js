@@ -22,6 +22,14 @@ export class CharacterController {
         this.raycaster = null;
         this.plane = null;
         
+        // Physics properties
+        this.physicsBody = null;
+        this.isGrounded = false;
+        this.jumpForce = 10;
+        this.gravity = -20;
+        this.velocity = { x: 0, y: 0, z: 0 };
+        this.collisionMargin = 0.5;
+        
         // Initialize based on current engine
         if (this.engine.currentRenderingEngine === 'three.js') {
             this.initThreeCharacter();
@@ -32,7 +40,7 @@ export class CharacterController {
     
     async initThreeCharacter() {
         try {
-            // Create a raycaster for click detection
+            // Create a raycaster for click detection and ground checks
             this.raycaster = new THREE.Raycaster();
             
             // Add click event listener
@@ -57,9 +65,60 @@ export class CharacterController {
             this.cameraPivot.position.set(0, 0, 0);
             this.scene.threeScene.add(this.cameraPivot);
             
+            // Setup physics
+            this.setupPhysics();
+            
             this.initialized = true;
         } catch (error) {
             console.error('Failed to initialize character:', error);
+        }
+    }
+    
+    setupPhysics() {
+        if (!this.engine.activeEngines.physics || !this.mesh) return;
+        
+        try {
+            // Create a physics body for the character
+            const physicsEngine = this.engine.activeEngines.physics;
+            const characterRadius = 2; // approximate radius of character
+            const characterHeight = 10; // approximate height of character
+            
+            // Create a capsule shape for better character physics
+            const shape = new CANNON.Cylinder(
+                characterRadius, // top radius
+                characterRadius, // bottom radius
+                characterHeight, // height
+                8 // number of segments
+            );
+            
+            // Create the physics body
+            this.physicsBody = physicsEngine.createBody({
+                mass: 70, // Character mass in kg
+                position: new CANNON.Vec3(this.position.x, this.position.y + characterHeight/2, this.position.z),
+                shape: shape,
+                material: new CANNON.Material({
+                    friction: 0.3,
+                    restitution: 0.0 // No bouncing
+                })
+            });
+            
+            // Add damping to prevent sliding
+            this.physicsBody.linearDamping = 0.9;
+            this.physicsBody.angularDamping = 0.9;
+            
+            // Prevent character from tipping over
+            this.physicsBody.fixedRotation = true;
+            this.physicsBody.updateMassProperties();
+            
+            // Store reference to character controller in the body
+            this.physicsBody.characterController = this;
+            
+            // Set initial position
+            this.updatePhysicsBody();
+            
+            console.log('Character physics initialized');
+        } catch (error) {
+            console.error('Failed to setup character physics:', error);
         }
     }
     
@@ -79,16 +138,7 @@ export class CharacterController {
             
             this.mesh = result.scene;
             this.mesh.scale.set(5, 5, 5);
-            
-            // Ensure initial position is on the terrain
-            if (this.scene.getTerrainHeight) {
-                const terrainHeight = this.scene.getTerrainHeight(0, 0);
-                this.position.y = terrainHeight;
-                this.mesh.position.y = terrainHeight;
-            } else {
-                this.mesh.position.y = 0;
-            }
-            
+            this.mesh.position.y = 0;
             this.mesh.traverse(child => {
                 if (child.isMesh) {
                     child.castShadow = true;
@@ -109,8 +159,12 @@ export class CharacterController {
             // Add to scene
             this.scene.threeScene.add(this.mesh);
             
-            // Set initial position
-            this.position = { x: 0, y: this.mesh.position.y, z: 0 };
+            // Set initial position with proper ground height
+            this.position = { 
+                x: 0, 
+                y: this.getGroundHeight(0, 0), 
+                z: 0 
+            };
             this.targetPosition = { ...this.position };
             this.updatePosition();
         } catch (error) {
@@ -149,10 +203,10 @@ export class CharacterController {
             // Get point of intersection
             const point = intersects[0].point;
             
-            // Set new target position
+            // Set new target position (keep y at current height - physics will handle)
             this.targetPosition = { 
                 x: point.x, 
-                y: 0, // We'll set this to the correct height in the update method
+                y: this.getGroundHeight(point.x, point.z), 
                 z: point.z 
             };
             
@@ -165,6 +219,42 @@ export class CharacterController {
             this.isMoving = true;
             this.playAnimation('run');
         }
+    }
+    
+    getGroundHeight(x, z) {
+        // Use the scene's terrain height function if available
+        if (this.scene && this.scene.getTerrainHeight) {
+            return this.scene.getTerrainHeight(x, z) + 0.5; // Add small offset to prevent sinking
+        }
+        return 0;
+    }
+    
+    checkGround() {
+        if (!this.mesh || !this.raycaster) return false;
+        
+        // Create a ray from character position downward
+        const rayStart = new THREE.Vector3(
+            this.mesh.position.x,
+            this.mesh.position.y + 1, // Start slightly above character base
+            this.mesh.position.z
+        );
+        const rayDir = new THREE.Vector3(0, -1, 0);
+        this.raycaster.set(rayStart, rayDir);
+        
+        // Check for intersection with terrain
+        const intersects = this.raycaster.intersectObjects(this.scene.threeScene.children, true);
+        
+        // Filter out our own mesh and the click plane
+        const validHits = intersects.filter(hit => hit.object !== this.mesh && 
+                                                hit.object !== this.plane);
+        
+        if (validHits.length > 0) {
+            // Found ground, get distance
+            const groundDistance = validHits[0].distance;
+            return groundDistance <= 2; // Consider grounded if less than 2 units away
+        }
+        
+        return false;
     }
     
     updatePosition() {
@@ -181,6 +271,18 @@ export class CharacterController {
                 this.position.z
             );
         }
+        
+        // Update physics body position if it exists
+        this.updatePhysicsBody();
+    }
+    
+    updatePhysicsBody() {
+        if (!this.physicsBody) return;
+        
+        // Update physics body position to match character
+        this.physicsBody.position.x = this.position.x;
+        this.physicsBody.position.y = this.position.y + 5; // Add half height offset
+        this.physicsBody.position.z = this.position.z;
     }
     
     update(deltaTime) {
@@ -191,56 +293,103 @@ export class CharacterController {
             this.mixer.update(deltaTime);
         }
         
-        // Move towards target position
-        if (this.isMoving) {
-            // Calculate distance to target
-            const dx = this.targetPosition.x - this.position.x;
-            const dz = this.targetPosition.z - this.position.z;
-            const distanceToTarget = Math.sqrt(dx * dx + dz * dz);
+        // Check if character is on the ground
+        this.isGrounded = this.checkGround();
+        
+        // Handle movement from physics
+        if (this.physicsBody) {
+            // Get position from physics
+            this.position.x = this.physicsBody.position.x;
+            this.position.y = this.physicsBody.position.y - 5; // Subtract half height offset
+            this.position.z = this.physicsBody.position.z;
             
-            // Smoothly rotate towards target direction
-            const rotationDifference = this.targetRotation - this.currentRotation;
-            let rotationDelta = rotationDifference;
-            
-            // Normalize rotation difference to be between -PI and PI
-            if (rotationDelta > Math.PI) rotationDelta -= Math.PI * 2;
-            if (rotationDelta < -Math.PI) rotationDelta += Math.PI * 2;
-            
-            // Apply rotation
-            this.currentRotation += rotationDelta * this.rotationSpeed * deltaTime;
-            
-            // If close enough to target or rotation not yet aligned, don't move yet
-            if (distanceToTarget > 0.5) {
-                // Move towards target
-                const moveStepX = this.moveSpeed * deltaTime * Math.sin(this.currentRotation);
-                const moveStepZ = this.moveSpeed * deltaTime * Math.cos(this.currentRotation);
+            // Move towards target position
+            if (this.isMoving && this.isGrounded) {
+                // Calculate distance to target
+                const dx = this.targetPosition.x - this.position.x;
+                const dz = this.targetPosition.z - this.position.z;
+                const distanceToTarget = Math.sqrt(dx * dx + dz * dz);
                 
-                this.position.x += moveStepX;
-                this.position.z += moveStepZ;
+                // Smoothly rotate towards target direction
+                const rotationDifference = this.targetRotation - this.currentRotation;
+                let rotationDelta = rotationDifference;
                 
-                // Sample terrain height at current position
-                if (this.scene.getTerrainHeight) {
-                    const terrainHeight = this.scene.getTerrainHeight(this.position.x, this.position.z);
-                    this.position.y = terrainHeight;
+                // Normalize rotation difference to be between -PI and PI
+                if (rotationDelta > Math.PI) rotationDelta -= Math.PI * 2;
+                if (rotationDelta < -Math.PI) rotationDelta += Math.PI * 2;
+                
+                // Apply rotation
+                this.currentRotation += rotationDelta * this.rotationSpeed * deltaTime;
+                
+                // If close enough to target or rotation not yet aligned, don't move yet
+                if (distanceToTarget > 0.5) {
+                    // Calculate movement direction
+                    const moveDir = new CANNON.Vec3(
+                        Math.sin(this.currentRotation) * this.moveSpeed,
+                        0,
+                        Math.cos(this.currentRotation) * this.moveSpeed
+                    );
+                    
+                    // Apply force to move character
+                    this.physicsBody.velocity.x = moveDir.x;
+                    this.physicsBody.velocity.z = moveDir.z;
+                } else {
+                    // Reached target
+                    this.isMoving = false;
+                    this.playAnimation('idle');
+                    
+                    // Stop movement
+                    this.physicsBody.velocity.x = 0;
+                    this.physicsBody.velocity.z = 0;
                 }
-            } else {
-                // Reached target
-                this.isMoving = false;
-                this.playAnimation('idle');
+            } else if (!this.isMoving) {
+                // Gradually slow down if not moving
+                this.physicsBody.velocity.x *= 0.9;
+                this.physicsBody.velocity.z *= 0.9;
             }
             
-            // Update position
-            this.updatePosition();
+            // Ensure target position y coordinate is updated with terrain
+            this.targetPosition.y = this.getGroundHeight(this.targetPosition.x, this.targetPosition.z);
         } else {
-            // When not moving, make sure we're still on the terrain
-            if (this.scene.getTerrainHeight) {
-                const terrainHeight = this.scene.getTerrainHeight(this.position.x, this.position.z);
-                if (this.position.y !== terrainHeight) {
-                    this.position.y = terrainHeight;
-                    this.updatePosition();
+            // Fallback movement without physics
+            if (this.isMoving) {
+                // Calculate distance to target
+                const dx = this.targetPosition.x - this.position.x;
+                const dz = this.targetPosition.z - this.position.z;
+                const distanceToTarget = Math.sqrt(dx * dx + dz * dz);
+                
+                // Smoothly rotate towards target direction
+                const rotationDifference = this.targetRotation - this.currentRotation;
+                let rotationDelta = rotationDifference;
+                
+                // Normalize rotation difference to be between -PI and PI
+                if (rotationDelta > Math.PI) rotationDelta -= Math.PI * 2;
+                if (rotationDelta < -Math.PI) rotationDelta += Math.PI * 2;
+                
+                // Apply rotation
+                this.currentRotation += rotationDelta * this.rotationSpeed * deltaTime;
+                
+                // If close enough to target or rotation not yet aligned, don't move yet
+                if (distanceToTarget > 0.5) {
+                    // Move towards target
+                    const moveStepX = this.moveSpeed * deltaTime * Math.sin(this.currentRotation);
+                    const moveStepZ = this.moveSpeed * deltaTime * Math.cos(this.currentRotation);
+                    
+                    this.position.x += moveStepX;
+                    this.position.z += moveStepZ;
+                    
+                    // Sample terrain height at current position
+                    this.position.y = this.getGroundHeight(this.position.x, this.position.z);
+                } else {
+                    // Reached target
+                    this.isMoving = false;
+                    this.playAnimation('idle');
                 }
             }
         }
+        
+        // Update position
+        this.updatePosition();
         
         // Update camera to follow character
         this.updateCamera(deltaTime);
@@ -272,6 +421,12 @@ export class CharacterController {
         }
         
         window.removeEventListener('click', this.handleClick.bind(this));
+        
+        // Clean up physics body
+        if (this.physicsBody && this.engine.activeEngines.physics) {
+            this.engine.activeEngines.physics.removeBody(this.physicsBody);
+            this.physicsBody = null;
+        }
         
         if (this.scene.threeScene && this.mesh) {
             this.scene.threeScene.remove(this.mesh);
