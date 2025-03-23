@@ -68,7 +68,13 @@ class Application {
                     }
                 });
                 
-                renderFolder.addInput(config.rendering, 'antialias');
+                renderFolder.addInput(config.rendering, 'antialias').on('change', () => {
+                    if (this.engine && this.engine.activeEngines.renderer) {
+                        this.engine.activeEngines.renderer.updateSettings({ 
+                            antialias: config.rendering.antialias 
+                        });
+                    }
+                });
                 
                 renderFolder.addInput(config.rendering, 'pixelRatio', {
                     min: 0.5,

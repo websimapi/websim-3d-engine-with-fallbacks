@@ -676,6 +676,36 @@ class ThreeRenderer {
             }
         }
         
+        if (settings.antialias !== undefined && settings.antialias !== this.config.rendering.antialias) {
+            // Store the setting
+            this.config.rendering.antialias = settings.antialias;
+            
+            // Recreate the renderer with new antialias setting
+            const oldRenderer = this.renderer;
+            
+            this.renderer = new THREE.WebGLRenderer({
+                canvas: this.canvas,
+                antialias: settings.antialias,
+                alpha: false
+            });
+            
+            // Restore previous renderer settings
+            this.renderer.setSize(window.innerWidth, window.innerHeight);
+            this.renderer.setPixelRatio(oldRenderer.getPixelRatio());
+            
+            // Restore shadow settings if applicable
+            if (oldRenderer.shadowMap.enabled) {
+                this.renderer.shadowMap.enabled = true;
+                this.renderer.shadowMap.type = oldRenderer.shadowMap.type;
+                this.renderer.shadowMap.needsUpdate = true;
+            }
+            
+            // Dispose of old renderer to prevent memory leaks
+            oldRenderer.dispose();
+            
+            console.log(`Antialiasing ${settings.antialias ? 'enabled' : 'disabled'}`);
+        }
+        
         if (settings.pixelRatio !== undefined && this.renderer) {
             this.renderer.setPixelRatio(Math.min(
                 settings.pixelRatio,
@@ -860,6 +890,12 @@ class BabylonRenderer {
                 this.shadowGenerator.dispose();
                 this.shadowGenerator = null;
             }
+        }
+        
+        if (settings.antialias !== undefined && settings.antialias !== this.config.rendering.antialias) {
+            console.log(`Babylon antialiasing ${settings.antialias ? 'enabled' : 'disabled'} - Note: Requires engine restart`);
+            this.config.rendering.antialias = settings.antialias;
+            // For Babylon, antialiasing can't be changed at runtime, needs engine restart
         }
         
         if (settings.pixelRatio !== undefined && this.engine) {
