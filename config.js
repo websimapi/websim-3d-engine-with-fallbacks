@@ -16,7 +16,7 @@ export const config = {
     // Physics options
     physics: {
         engine: "cannon-es", // Options: "cannon-es", "ammo.js", "rapier", "physx", "none"
-        gravity: { x: 0, y: -9.81, z: 0 },
+        gravity: { x: 0, y: -4.9, z: 0 },
         debug: false, // Render physics debug wireframes
         useFallbackIfFailed: true,
     },

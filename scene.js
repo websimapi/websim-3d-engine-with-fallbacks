@@ -105,12 +105,12 @@ export class ChunkedScene {
         if (this.engine.activeEngines.physics && this.engine.activeEngines.physics.world) {
             const shape = new CANNON.Sphere(1);
             this.playerBody = new CANNON.Body({
-                mass: 5,
+                mass: 2, 
                 position: new CANNON.Vec3(this.playerSphere.position.x, this.playerSphere.position.y, this.playerSphere.position.z),
                 shape: shape,
                 material: new CANNON.Material({
-                    friction: 0.3,
-                    restitution: 0.3
+                    friction: 0.1, 
+                    restitution: 0.5 
                 })
             });
             
@@ -243,7 +243,7 @@ export class ChunkedScene {
             startY: 0,
             currentX: 0,
             currentY: 0,
-            forceMultiplier: 0.5
+            forceMultiplier: 2
         };
         
         // Set up keyboard controls
@@ -556,7 +556,7 @@ export class ChunkedScene {
         const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0));
         
         // Force strength
-        const forceStrength = 20 * (this.playerBody.mass / 5); // Scale with mass
+        const forceStrength = 40 * (this.playerBody.mass / 5); 
         let forceVector = new CANNON.Vec3(0, 0, 0);
         
         // Apply forces based on keyboard input
@@ -587,8 +587,8 @@ export class ChunkedScene {
             if (Math.abs(dragX) > 5 || Math.abs(dragY) > 5) {
                 // Convert screen drag to world direction
                 // Negative dragY means drag up = move forward
-                forceVector.x += (forward.x * -dragY + right.x * dragX) * this.dragControls.forceMultiplier;
-                forceVector.z += (forward.z * -dragY + right.z * dragX) * this.dragControls.forceMultiplier;
+                forceVector.x += (forward.x * -dragY + right.x * dragX) * this.dragControls.forceMultiplier * 4; 
+                forceVector.z += (forward.z * -dragY + right.z * dragX) * this.dragControls.forceMultiplier * 4; 
                 
                 // Update start position for continuous dragging
                 this.dragControls.startX = this.dragControls.currentX;

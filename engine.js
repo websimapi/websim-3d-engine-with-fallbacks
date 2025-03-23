@@ -964,7 +964,7 @@ class CannonPhysics {
             this.world = new CANNON.World();
             this.world.gravity.set(
                 this.config.gravity.x,
-                this.config.gravity.y,
+                this.config.gravity.y * 0.5, // Reduced gravity to half
                 this.config.gravity.z
             );
             
@@ -979,7 +979,13 @@ class CannonPhysics {
             
             // Create ground plane
             const groundShape = new CANNON.Plane();
-            const groundBody = new CANNON.Body({ mass: 0 }); // mass 0 = static
+            const groundBody = new CANNON.Body({ 
+                mass: 0,
+                material: new CANNON.Material({
+                    friction: 0.1, // Reduced friction for ground
+                    restitution: 0.3
+                })
+            }); // mass 0 = static
             groundBody.addShape(groundShape);
             groundBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2); // rotate to be flat
             groundBody.position.set(0, -5, 0); // match the visual ground position
