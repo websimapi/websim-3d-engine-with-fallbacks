@@ -420,7 +420,7 @@ export class ChunkedScene {
         this.threeScene.add(this.sunLight);
         
         // Add ambient moonlight for night
-        this.moonLight = new THREE.AmbientLight(0x223366, 0.2);
+        this.moonLight = new THREE.AmbientLight(0x223344, 0.2);
         this.threeScene.add(this.moonLight);
         
         // Initialize time of day
@@ -430,6 +430,34 @@ export class ChunkedScene {
         
         // Update lighting based on current time
         this.updateDayNightCycle(0);
+    }
+    
+    // Main update method called each frame
+    update(deltaTime) {
+        // Update day/night cycle
+        if (config.world.dayNightCycle && this.threeScene) {
+            this.updateDayNightCycle(deltaTime);
+        }
+        
+        // Update player controls if available
+        this.updatePlayerControls(deltaTime);
+        
+        // Check for pickups and object collisions
+        this.checkPickups();
+        
+        // Get current camera position
+        const cameraPosition = this.getCameraPosition();
+        
+        // Calculate which chunk the camera is in
+        const chunkX = Math.floor(cameraPosition.x / this.chunkSize);
+        const chunkZ = Math.floor(cameraPosition.z / this.chunkSize);
+        
+        // Only update chunks if we've moved to a new chunk
+        if (chunkX !== this.lastCameraChunkX || chunkZ !== this.lastCameraChunkZ) {
+            this.updateVisibleChunks(chunkX, chunkZ);
+            this.lastCameraChunkX = chunkX;
+            this.lastCameraChunkZ = chunkZ;
+        }
     }
     
     // Update day/night cycle lighting
@@ -473,69 +501,25 @@ export class ChunkedScene {
                 // Sunrise/sunset - orange tint
                 const blendFactor = 1 - (sunHeight / 0.2);
                 this.hemisphereLight.color.setHSL(0.1, 0.7, 0.5 + (0.5 * sunHeight)); // Orange sky
-                
-                // Add more reddish glow at sunset/sunrise
-                this.sunLight.color.setHSL(0.05, 0.9, 0.5 + (0.5 * sunHeight));
             } else {
                 this.hemisphereLight.color.setHSL(0.6, 0.8, 0.8); // Blue sky
-                this.sunLight.color.setHSL(0.1, 0.7, 1.0); // Restore normal sun color
             }
         } else {
             // Night time
-            const nightProgress = Math.abs(sunHeight) / 1.0; // How deep into night (0-1)
-            
             sunIntensity = 0;
             ambientIntensity = 0;
+            this.moonLight.intensity = 0.2;
             
-            // Enhanced moonlight with blue tint that varies through the night
-            this.moonLight.intensity = 0.3;
-            this.moonLight.color.setHSL(0.7, 0.9, 0.5); // Bluish moonlight
+            // Dark blue night sky
+            this.threeScene.background = new THREE.Color().setHSL(0.7, 0.8, Math.max(0.1, 0.1 + sunHeight));
+            this.threeScene.fog.color.setHSL(0.7, 0.8, Math.max(0.1, 0.1 + sunHeight));
             
-            // Darker blue night sky with stars effect (lighter at midnight)
-            const nightHue = 0.7;  // Deep blue
-            const nightSat = 0.8;
-            
-            // Slightly brighter at midnight, darker at dusk/dawn
-            const nightLightness = Math.max(0.05, 0.12 - (0.07 * Math.cos(Math.PI * nightProgress)));
-            
-            this.threeScene.background = new THREE.Color().setHSL(nightHue, nightSat, nightLightness);
-            this.threeScene.fog.color.setHSL(nightHue, nightSat, nightLightness);
-            
-            // Deep blue hemisphere for night
-            this.hemisphereLight.color.setHSL(0.7, 0.9, 0.1 + (0.05 * Math.sin(Math.PI * nightProgress)));
-            this.hemisphereLight.groundColor.setHSL(0.7, 0.5, 0.05); // Darker ground reflection at night
+            // Night hemisphere
+            this.hemisphereLight.color.setHSL(0.7, 0.8, 0.1);
         }
         
         this.sunLight.intensity = sunIntensity;
         this.hemisphereLight.intensity = 0.6 + (ambientIntensity * 0.4);
-    }
-    
-    // Main update method called each frame
-    update(deltaTime) {
-        // Update day/night cycle
-        if (config.world.dayNightCycle && this.threeScene) {
-            this.updateDayNightCycle(deltaTime);
-        }
-        
-        // Update player controls if available
-        this.updatePlayerControls(deltaTime);
-        
-        // Check for pickups and object collisions
-        this.checkPickups();
-        
-        // Get current camera position
-        const cameraPosition = this.getCameraPosition();
-        
-        // Calculate which chunk the camera is in
-        const chunkX = Math.floor(cameraPosition.x / this.chunkSize);
-        const chunkZ = Math.floor(cameraPosition.z / this.chunkSize);
-        
-        // Only update chunks if we've moved to a new chunk
-        if (chunkX !== this.lastCameraChunkX || chunkZ !== this.lastCameraChunkZ) {
-            this.updateVisibleChunks(chunkX, chunkZ);
-            this.lastCameraChunkX = chunkX;
-            this.lastCameraChunkZ = chunkZ;
-        }
     }
     
     // Get current camera position
@@ -793,37 +777,6 @@ export class ChunkedScene {
         }
     }
     
-    // Unload a chunk by ID
-    unloadChunk(chunkId) {
-        const chunk = this.chunks.get(chunkId);
-        
-        if (chunk) {
-            if (this.engine.currentRenderingEngine === 'three.js') {
-                // Remove from Three.js scene
-                if (this.threeScene && chunk.mesh) {
-                    this.threeScene.remove(chunk.mesh);
-                    
-                    // Properly dispose of Three.js resources
-                    if (chunk.mesh.geometry) chunk.mesh.geometry.dispose();
-                    if (chunk.mesh.material) {
-                        if (Array.isArray(chunk.mesh.material)) {
-                            chunk.mesh.material.forEach(m => m.dispose());
-                        } else {
-                            chunk.mesh.material.dispose();
-                        }
-                    }
-                }
-            } else if (this.engine.currentRenderingEngine === 'babylon.js') {
-                // Dispose of Babylon resources
-                if (chunk.mesh) chunk.mesh.dispose(true, true);
-            }
-            
-            // Remove from chunk map
-            this.chunks.delete(chunkId);
-            this.totalChunks--;
-        }
-    }
-    
     // Create a Three.js chunk
     createThreeChunk(chunkX, chunkZ, worldX, worldZ) {
         try {
@@ -871,6 +824,9 @@ export class ChunkedScene {
             // Add to scene
             if (this.threeScene) {
                 this.threeScene.add(mesh);
+                
+                // Add pickup objects to this chunk
+                this.createPickupObjectsInChunk(worldX, worldZ);
             }
             
             return { mesh, chunkX, chunkZ };
@@ -880,44 +836,180 @@ export class ChunkedScene {
         }
     }
     
-    // Apply vertex colors to Three.js geometry based on height
-    applyColorToThreeGeometry(geometry) {
-        const vertices = geometry.attributes.position.array;
-        const colors = new Float32Array(vertices.length);
+    // Create pickup objects in a specific chunk
+    createPickupObjectsInChunk(worldX, worldZ) {
+        if (!this.threeScene) return;
         
-        for (let i = 0; i < vertices.length; i += 3) {
-            const height = vertices[i+1];
-            
-            // Generate color based on height
-            let color;
-            if (height < 0) {
-                // Water - blue
-                color = new THREE.Color(0x0077be);
-            } else if (height < 3) {
-                // Sand - tan
-                color = new THREE.Color(0xc2b280);
-            } else if (height < 12) {
-                // Grass - green
-                color = new THREE.Color(0x567d46);
-            } else if (height < 35) {
-                // Forest - dark green
-                color = new THREE.Color(0x2d4c1e);
-            } else if (height < 60) {
-                // Mountain - gray brown
-                color = new THREE.Color(0x7d6b5d);
-            } else {
-                // Snow peaks - white
-                color = new THREE.Color(0xeeeeee);
+        const objectShapes = [
+            { 
+                geometry: new THREE.BoxGeometry(0.5, 0.5, 0.5),
+                mass: 0.5,
+                count: 3 + Math.floor(Math.random() * 3),
+                createShape: size => new CANNON.Box(new CANNON.Vec3(size/2, size/2, size/2)),
+                color: 0xff4444
+            },
+            { 
+                geometry: new THREE.SphereGeometry(0.3, 16, 16),
+                mass: 0.3,
+                count: 2 + Math.floor(Math.random() * 3),
+                createShape: radius => new CANNON.Sphere(radius),
+                color: 0x44ff44
+            },
+            { 
+                geometry: new THREE.ConeGeometry(0.3, 0.6, 16),
+                mass: 0.4,
+                count: 2 + Math.floor(Math.random() * 2),
+                createShape: size => new CANNON.Cylinder(0, size, size*2, 8),
+                color: 0x4444ff
+            }
+        ];
+        
+        objectShapes.forEach(objectType => {
+            for (let i = 0; i < objectType.count; i++) {
+                const material = new THREE.MeshStandardMaterial({
+                    color: objectType.color,
+                    roughness: 0.7,
+                    metalness: 0.2
+                });
+                
+                const mesh = new THREE.Mesh(objectType.geometry, material);
+                
+                // Position within this chunk - spread randomly
+                const offsetX = Math.random() * this.chunkSize - (this.chunkSize / 2);
+                const offsetZ = Math.random() * this.chunkSize - (this.chunkSize / 2);
+                
+                // Find the height at this position
+                const x = worldX + this.chunkSize/2 + offsetX;
+                const z = worldZ + this.chunkSize/2 + offsetZ;
+                const height = this.getTerrainHeight(x, z);
+                
+                mesh.position.set(
+                    x,
+                    height + 1 + Math.random() * 4, // Position above terrain
+                    z
+                );
+                
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
+                this.threeScene.add(mesh);
+                
+                // Add physics
+                if (this.engine.activeEngines.physics && this.engine.activeEngines.physics.world) {
+                    let size;
+                    let shape;
+                    
+                    if (objectType.geometry.type.includes('Sphere')) {
+                        size = objectType.geometry.parameters.radius;
+                        shape = objectType.createShape(size);
+                    } else if (objectType.geometry.type.includes('Box')) {
+                        size = objectType.geometry.parameters.width;
+                        shape = objectType.createShape(size);
+                    } else if (objectType.geometry.type.includes('Cone')) {
+                        size = objectType.geometry.parameters.radius;
+                        shape = objectType.createShape(size);
+                    }
+                    
+                    const body = new CANNON.Body({
+                        mass: objectType.mass,
+                        position: new CANNON.Vec3(mesh.position.x, mesh.position.y, mesh.position.z),
+                        shape: shape
+                    });
+                    
+                    // Store reference to visual object
+                    body.userData = { 
+                        visual: mesh,
+                        isPickup: true,
+                        originalMass: objectType.mass,
+                        size: size
+                    };
+                    
+                    this.engine.activeEngines.physics.world.addBody(body);
+                    this.engine.activeEngines.physics.bodies.push(body);
+                    
+                    // Store reference to physics body
+                    mesh.userData = { physicsBody: body };
+                    
+                    // Add to our pickup objects array
+                    this.pickupObjects.push({ mesh, body });
+                }
+            }
+        });
+    }
+    
+    // Unload a chunk by ID
+    unloadChunk(chunkId) {
+        const chunk = this.chunks.get(chunkId);
+        
+        if (chunk) {
+            if (this.engine.currentRenderingEngine === 'three.js') {
+                // Remove from Three.js scene
+                if (this.threeScene && chunk.mesh) {
+                    this.threeScene.remove(chunk.mesh);
+                    
+                    // Properly dispose of Three.js resources
+                    if (chunk.mesh.geometry) chunk.mesh.geometry.dispose();
+                    if (chunk.mesh.material) {
+                        if (Array.isArray(chunk.mesh.material)) {
+                            chunk.mesh.material.forEach(m => m.dispose());
+                        } else {
+                            chunk.mesh.material.dispose();
+                        }
+                    }
+                    
+                    // Remove all pickup objects from this chunk
+                    this.removePickupObjectsFromChunk(chunk.chunkX, chunk.chunkZ);
+                }
+            } else if (this.engine.currentRenderingEngine === 'babylon.js') {
+                // Dispose of Babylon resources
+                if (chunk.mesh) chunk.mesh.dispose(true, true);
             }
             
-            // Set RGB values
-            colors[i] = color.r;
-            colors[i+1] = color.g;
-            colors[i+2] = color.b;
+            // Remove from chunk map
+            this.chunks.delete(chunkId);
+            this.totalChunks--;
         }
+    }
+    
+    // Remove pickup objects from a specific chunk
+    removePickupObjectsFromChunk(chunkX, chunkZ) {
+        if (!this.pickupObjects) return;
         
-        // Add colors to geometry
-        geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+        const worldX = chunkX * this.chunkSize;
+        const worldZ = chunkZ * this.chunkSize;
+        const chunkMinX = worldX;
+        const chunkMaxX = worldX + this.chunkSize;
+        const chunkMinZ = worldZ;
+        const chunkMaxZ = worldZ + this.chunkSize;
+        
+        // Filter out pickup objects in this chunk
+        for (let i = this.pickupObjects.length - 1; i >= 0; i--) {
+            const object = this.pickupObjects[i];
+            
+            // Skip if already attached to player
+            if (object.body && object.body.userData && object.body.userData.isAttached) continue;
+            
+            // Check if object is in this chunk
+            const x = object.mesh.position.x;
+            const z = object.mesh.position.z;
+            
+            if (x >= chunkMinX && x <= chunkMaxX && z >= chunkMinZ && z <= chunkMaxZ) {
+                // Remove from scene and physics world
+                this.threeScene.remove(object.mesh);
+                
+                if (this.engine.activeEngines.physics && this.engine.activeEngines.physics.world) {
+                    this.engine.activeEngines.physics.world.removeBody(object.body);
+                    
+                    // Remove from bodies array
+                    const index = this.engine.activeEngines.physics.bodies.indexOf(object.body);
+                    if (index >= 0) {
+                        this.engine.activeEngines.physics.bodies.splice(index, 1);
+                    }
+                }
+                
+                // Remove from our array
+                this.pickupObjects.splice(i, 1);
+            }
+        }
     }
     
     // Create a Babylon.js chunk
