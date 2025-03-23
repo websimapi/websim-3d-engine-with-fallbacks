@@ -54,19 +54,6 @@ export const config = {
         timeOfDay: 0.3          // Starting time (0-1, where 0=midnight, 0.5=noon)
     },
     
-    // Character settings
-    character: {
-        moveSpeed: 5,
-        turnSpeed: 5,
-        model: "https://cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/models/gltf/Soldier.glb",
-        scale: 1,
-        animations: {
-            idle: "idle",
-            walk: "walk",
-            run: "run"
-        }
-    },
-    
     // Optional features
     features: {
         meshBVH: false  // Disabled to avoid CDN loading issues

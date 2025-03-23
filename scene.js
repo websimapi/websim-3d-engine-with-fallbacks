@@ -3,7 +3,6 @@
  */
 import { config } from './config.js';
 import { MathUtils } from './utils.js';
-import { Character } from './character.js';
 
 export class ChunkedScene {
     constructor(engine) {
@@ -28,9 +27,6 @@ export class ChunkedScene {
         
         // Babylon.js specific objects
         this.babylonScene = null;
-        
-        // Character
-        this.character = null;
         
         this.initialize();
     }
@@ -84,24 +80,91 @@ export class ChunkedScene {
         
         // Set up sunlight for day/night cycle
         this.setupDayNightCycle();
-        
-        // Add character instead of test objects
-        this.addCharacter();
     }
     
-    // Add character to the scene
-    addCharacter() {
-        // Wait for renderer to be available
-        if (this.engine.activeEngines.renderer) {
-            this.character = new Character(this, this.engine.activeEngines.renderer);
+    // Setup day/night cycle lighting
+    setupDayNightCycle() {
+        // Create hemisphere light (sky and ground)
+        this.hemisphereLight = new THREE.HemisphereLight(0x87ceeb, 0x3a3a3a, 0.6);
+        this.threeScene.add(this.hemisphereLight);
+        
+        // Create directional light (sun)
+        this.sunLight = new THREE.DirectionalLight(0xffffee, 1.5);
+        this.sunLight.position.set(100, 100, 50);
+        this.sunLight.castShadow = config.rendering.shadows;
+        
+        // Improve shadow quality
+        this.sunLight.shadow.mapSize.width = 2048;
+        this.sunLight.shadow.mapSize.height = 2048;
+        this.sunLight.shadow.camera.near = 0.5;
+        this.sunLight.shadow.camera.far = 500;
+        this.sunLight.shadow.camera.left = -100;
+        this.sunLight.shadow.camera.right = 100;
+        this.sunLight.shadow.camera.top = 100;
+        this.sunLight.shadow.camera.bottom = -100;
+        
+        this.threeScene.add(this.sunLight);
+        
+        // Add ambient moonlight for night
+        this.moonLight = new THREE.AmbientLight(0x223344, 0.2);
+        this.threeScene.add(this.moonLight);
+        
+        // Add test objects to show shadows
+        this.addTestObjects();
+        
+        // Initialize time of day
+        this.timeOfDay = config.world.timeOfDay;
+        this.dayLength = config.world.dayLength;
+        this.lastUpdate = Date.now();
+        
+        // Update lighting based on current time
+        this.updateDayNightCycle(0);
+    }
+    
+    // Add test objects to demonstrate shadows
+    addTestObjects() {
+        // Add some cubes and spheres to cast shadows
+        const geometry = new THREE.BoxGeometry(10, 10, 10);
+        const material = new THREE.MeshStandardMaterial({
+            color: 0x8844aa,
+            roughness: 0.7,
+            metalness: 0.2
+        });
+        
+        // Create a few test cubes
+        for (let i = 0; i < 5; i++) {
+            const cube = new THREE.Mesh(geometry, material);
+            cube.position.set(
+                (i * 20) - 40,
+                15,
+                -20
+            );
+            cube.castShadow = true;
+            cube.receiveShadow = true;
+            this.threeScene.add(cube);
+        }
+        
+        // Add a few spheres
+        const sphereGeometry = new THREE.SphereGeometry(7, 32, 32);
+        const sphereMaterial = new THREE.MeshStandardMaterial({
+            color: 0x44aa88,
+            roughness: 0.5,
+            metalness: 0.3
+        });
+        
+        for (let i = 0; i < 3; i++) {
+            const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+            sphere.position.set(
+                (i * 25) - 25,
+                10,
+                20
+            );
+            sphere.castShadow = true;
+            sphere.receiveShadow = true;
+            this.threeScene.add(sphere);
         }
     }
     
-    // Remove the test objects function
-    addTestObjects() {
-        // Function intentionally empty - no test objects
-    }
-
     // Initialize for Babylon.js renderer
     initializeBabylonScene() {
         if (!this.engine.activeEngines.renderer || !this.engine.activeEngines.renderer.scene) {
@@ -134,42 +197,6 @@ export class ChunkedScene {
         skybox.material = skyboxMaterial;
     }
     
-    // Setup day/night cycle lighting
-    setupDayNightCycle() {
-        // Create hemisphere light (sky and ground)
-        this.hemisphereLight = new THREE.HemisphereLight(0x87ceeb, 0x3a3a3a, 0.6);
-        this.threeScene.add(this.hemisphereLight);
-        
-        // Create directional light (sun)
-        this.sunLight = new THREE.DirectionalLight(0xffffee, 1.5);
-        this.sunLight.position.set(100, 100, 50);
-        this.sunLight.castShadow = config.rendering.shadows;
-        
-        // Improve shadow quality
-        this.sunLight.shadow.mapSize.width = 2048;
-        this.sunLight.shadow.mapSize.height = 2048;
-        this.sunLight.shadow.camera.near = 0.5;
-        this.sunLight.shadow.camera.far = 500;
-        this.sunLight.shadow.camera.left = -100;
-        this.sunLight.shadow.camera.right = 100;
-        this.sunLight.shadow.camera.top = 100;
-        this.sunLight.shadow.camera.bottom = -100;
-        
-        this.threeScene.add(this.sunLight);
-        
-        // Add ambient moonlight for night
-        this.moonLight = new THREE.AmbientLight(0x223344, 0.2);
-        this.threeScene.add(this.moonLight);
-        
-        // Initialize time of day
-        this.timeOfDay = config.world.timeOfDay;
-        this.dayLength = config.world.dayLength;
-        this.lastUpdate = Date.now();
-        
-        // Update lighting based on current time
-        this.updateDayNightCycle(0);
-    }
-    
     // Update based on current configuration
     updateChunkSettings() {
         this.loadDistance = config.performance.chunkLoadDistance;
@@ -199,11 +226,6 @@ export class ChunkedScene {
             this.updateVisibleChunks(chunkX, chunkZ);
             this.lastCameraChunkX = chunkX;
             this.lastCameraChunkZ = chunkZ;
-        }
-        
-        // Update character
-        if (this.character) {
-            this.character.update(deltaTime);
         }
     }
     
