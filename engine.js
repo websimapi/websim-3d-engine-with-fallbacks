@@ -539,7 +539,7 @@ class CannonPhysics {
             let CANNON;
             try {
                 CANNON = await import('cannon-es');
-                CANNON = CANNON.default;
+                window.CANNON = CANNON;
             } catch (error) {
                 console.error('Error importing Cannon-ES as module:', error);
                 

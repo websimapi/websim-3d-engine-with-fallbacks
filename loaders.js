@@ -30,7 +30,8 @@ export class ResourceManager {
                 const currentUrl = urls[i];
                 
                 // Check if this is a module that should be imported directly
-                if (currentUrl.endsWith('.module.js') || currentUrl.endsWith('index.module.js')) {
+                if (currentUrl.endsWith('.module.js') || currentUrl.endsWith('index.module.js') || 
+                    name === 'cannon-es' || name === 'three.js' || name === 'three-mesh-bvh') {
                     try {
                         // Use dynamic import for ES modules
                         await import(currentUrl);
