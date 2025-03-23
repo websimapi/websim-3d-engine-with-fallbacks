@@ -124,7 +124,7 @@ class Application {
                 
                 perfFolder.addInput(config.performance, 'chunkLoadDistance', {
                     min: 1,
-                    max: config.performance.maxRenderDistance,
+                    max: 10,
                     step: 1
                 }).on('change', () => {
                     if (this.engine && this.engine.scene) {
