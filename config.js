@@ -50,7 +50,7 @@ export const config = {
         terrainHeight: 70,
         terrainScale: 0.005,
         dayNightCycle: true,    // Enable day/night cycle
-        dayLength: 300,         // Day length in seconds
+        dayLength: 900,         // Day length in seconds
         timeOfDay: 0.3          // Starting time (0-1, where 0=midnight, 0.5=noon)
     },
     

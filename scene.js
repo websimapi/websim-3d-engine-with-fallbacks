@@ -423,6 +423,20 @@ export class ChunkedScene {
         this.moonLight = new THREE.AmbientLight(0x223344, 0.2);
         this.threeScene.add(this.moonLight);
         
+        // Add directional moonlight
+        this.directionalMoonLight = new THREE.DirectionalLight(0x8888ff, 0.5);
+        this.directionalMoonLight.position.set(-100, 100, -50); // Opposite to sun
+        this.directionalMoonLight.castShadow = config.rendering.shadows;
+        this.directionalMoonLight.shadow.mapSize.width = 1024;
+        this.directionalMoonLight.shadow.mapSize.height = 1024;
+        this.directionalMoonLight.shadow.camera.near = 0.5;
+        this.directionalMoonLight.shadow.camera.far = 500;
+        this.directionalMoonLight.shadow.camera.left = -100;
+        this.directionalMoonLight.shadow.camera.right = 100;
+        this.directionalMoonLight.shadow.camera.top = 100;
+        this.directionalMoonLight.shadow.camera.bottom = -100;
+        this.threeScene.add(this.directionalMoonLight);
+        
         // Initialize time of day
         this.timeOfDay = config.world.timeOfDay;
         this.dayLength = config.world.dayLength;
@@ -479,14 +493,19 @@ export class ChunkedScene {
         // Position sun
         this.sunLight.position.set(sunX, sunY, 50);
         
+        // Position moon (opposite to sun)
+        this.directionalMoonLight.position.set(-sunX, Math.max(10, -sunY + 20), -50);
+        
         // Adjust light intensity based on time of day
-        let sunIntensity, ambientIntensity;
+        let sunIntensity, moonIntensity, ambientIntensity;
         
         if (sunHeight > 0) {
             // Day time
             sunIntensity = Math.max(0.1, sunHeight * 1.5);
             ambientIntensity = sunHeight * 0.5;
+            moonIntensity = 0;
             this.moonLight.intensity = 0;
+            this.directionalMoonLight.intensity = 0;
             
             // Change sky color
             let skyHue = 0.6; // Blue
@@ -508,14 +527,19 @@ export class ChunkedScene {
             // Night time
             sunIntensity = 0;
             ambientIntensity = 0;
-            this.moonLight.intensity = 0.2;
             
-            // Dark blue night sky
-            this.threeScene.background = new THREE.Color().setHSL(0.7, 0.8, Math.max(0.1, 0.1 + sunHeight));
-            this.threeScene.fog.color.setHSL(0.7, 0.8, Math.max(0.1, 0.1 + sunHeight));
+            // Moon light intensity based on negative sun height (stronger when sun is lowest)
+            moonIntensity = Math.min(0.5, Math.abs(sunHeight) * 0.6);
+            this.moonLight.intensity = 0.3;
+            this.directionalMoonLight.intensity = moonIntensity;
+            
+            // Dark blue night sky with stars
+            this.threeScene.background = new THREE.Color().setHSL(0.7, 0.8, Math.max(0.1, 0.15 + sunHeight));
+            this.threeScene.fog.color.setHSL(0.7, 0.8, Math.max(0.1, 0.15 + sunHeight));
             
             // Night hemisphere
-            this.hemisphereLight.color.setHSL(0.7, 0.8, 0.1);
+            this.hemisphereLight.color.setHSL(0.7, 0.8, 0.2);
+            this.hemisphereLight.groundColor.setHSL(0.7, 0.5, 0.1);
         }
         
         this.sunLight.intensity = sunIntensity;
