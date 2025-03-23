@@ -28,22 +28,6 @@ export class ResourceManager {
         for (let i = 0; i < urls.length; i++) {
             try {
                 const currentUrl = urls[i];
-                
-                // Check if this is a module that should be imported directly
-                if (currentUrl.endsWith('.module.js') || currentUrl.endsWith('index.module.js') || 
-                    name === 'cannon-es' || name === 'three.js' || name === 'three-mesh-bvh') {
-                    try {
-                        // Use dynamic import for ES modules
-                        await import(currentUrl);
-                        console.log(`Library loaded successfully: ${name} from ${currentUrl}`);
-                        this.loadedLibraries.set(name, true);
-                        return true;
-                    } catch (importError) {
-                        console.warn(`Failed to import module from: ${currentUrl}`, importError);
-                        throw importError;
-                    }
-                }
-                
                 const result = await new Promise((resolve, reject) => {
                     const script = document.createElement('script');
                     script.src = currentUrl;

@@ -524,277 +524,6 @@ export class Engine {
     }
 }
 
-// Cannon.js physics implementation
-class CannonPhysics {
-    constructor(config) {
-        this.config = config;
-        this.world = null;
-        this.bodies = [];
-        this.debugRenderer = null;
-    }
-    
-    async initialize() {
-        try {
-            // Check if Cannon is available via ES module import
-            let CANNON;
-            try {
-                CANNON = await import('cannon-es');
-                window.CANNON = CANNON;
-            } catch (error) {
-                console.error('Error importing Cannon-ES as module:', error);
-                
-                // Fallback to global CANNON object if available
-                if (typeof window.CANNON === 'undefined') {
-                    throw new Error('Cannon-ES not available');
-                }
-                CANNON = window.CANNON;
-            }
-            
-            // Initialize Cannon world
-            this.world = new CANNON.World();
-            this.world.gravity.set(
-                this.config.gravity.x,
-                this.config.gravity.y,
-                this.config.gravity.z
-            );
-            
-            // Set solver iterations
-            this.world.solver.iterations = 10;
-            
-            // Enable broadphase optimization
-            this.world.broadphase = new CANNON.SAPBroadphase(this.world);
-            
-            // Enable sleeping for better performance
-            this.world.allowSleep = true;
-            
-            return true;
-        } catch (error) {
-            console.error('Failed to initialize Cannon.js physics:', error);
-            throw error;
-        }
-    }
-    
-    update(deltaTime) {
-        if (!this.world) return;
-        
-        // Limit max step to prevent tunneling at low framerates
-        const maxSubSteps = 3;
-        const fixedTimeStep = 1/60;
-        
-        this.world.step(fixedTimeStep, deltaTime, maxSubSteps);
-    }
-    
-    createBody(options) {
-        if (!this.world) return null;
-        
-        try {
-            const body = new CANNON.Body({
-                mass: options.mass,
-                position: new CANNON.Vec3(
-                    options.position.x,
-                    options.position.y,
-                    options.position.z
-                ),
-                shape: options.shape,
-                material: options.material
-            });
-            
-            this.world.addBody(body);
-            this.bodies.push(body);
-            
-            return body;
-        } catch (error) {
-            console.error('Error creating physics body:', error);
-            return null;
-        }
-    }
-    
-    removeBody(body) {
-        if (!this.world || !body) return;
-        
-        try {
-            this.world.removeBody(body);
-            const index = this.bodies.indexOf(body);
-            if (index >= 0) {
-                this.bodies.splice(index, 1);
-            }
-        } catch (error) {
-            console.error('Error removing physics body:', error);
-        }
-    }
-    
-    enableDebug(scene, renderer) {
-        if (this.config.debug && scene && renderer && !this.debugRenderer) {
-            try {
-                // Simple debug visualization
-                this.debugMeshes = [];
-                
-                // We'll implement a simple debug renderer here
-                // This will be improved in a real implementation
-            } catch (error) {
-                console.error('Error enabling physics debug:', error);
-            }
-        }
-    }
-    
-    dispose() {
-        if (this.debugRenderer) {
-            // Clean up debug renderer
-            this.debugRenderer = null;
-        }
-        
-        // Clear all bodies
-        if (this.world) {
-            this.bodies.forEach(body => {
-                this.world.removeBody(body);
-            });
-            this.bodies = [];
-            this.world = null;
-        }
-    }
-}
-
-// Ammo.js physics implementation
-class AmmoPhysics {
-    constructor(config) {
-        this.config = config;
-        this.world = null;
-        this.bodies = [];
-    }
-    
-    async initialize() {
-        if (typeof Ammo === 'undefined') {
-            throw new Error('Ammo.js not loaded');
-        }
-        
-        try {
-            // Wait for Ammo to initialize (it's asynchronous)
-            if (typeof Ammo === 'function') {
-                await new Promise(resolve => {
-                    Ammo().then(ammo => {
-                        window.Ammo = ammo;
-                        resolve();
-                    });
-                });
-            }
-            
-            // Set up physics world
-            const collisionConfiguration = new Ammo.btDefaultCollisionConfiguration();
-            const dispatcher = new Ammo.btCollisionDispatcher(collisionConfiguration);
-            const broadphase = new Ammo.btDbvtBroadphase();
-            const solver = new Ammo.btSequentialImpulseConstraintSolver();
-            
-            this.world = new Ammo.btDiscreteDynamicsWorld(
-                dispatcher, 
-                broadphase, 
-                solver, 
-                collisionConfiguration
-            );
-            
-            // Set gravity
-            this.world.setGravity(new Ammo.btVector3(
-                this.config.gravity.x,
-                this.config.gravity.y,
-                this.config.gravity.z
-            ));
-            
-            return true;
-        } catch (error) {
-            console.error('Failed to initialize Ammo.js physics:', error);
-            throw error;
-        }
-    }
-    
-    update(deltaTime) {
-        if (!this.world) return;
-        
-        // Simulate physics with fixed timestep
-        this.world.stepSimulation(deltaTime, 10);
-    }
-    
-    dispose() {
-        // Clean up Ammo.js resources
-        // This is just a stub - proper Ammo cleanup would be needed
-        this.world = null;
-        this.bodies = [];
-    }
-}
-
-// RapierPhysics implementation (stub)
-class RapierPhysics {
-    constructor(config) {
-        this.config = config;
-        this.world = null;
-        this.bodies = [];
-    }
-    
-    async initialize() {
-        if (typeof RAPIER === 'undefined') {
-            throw new Error('Rapier not loaded');
-        }
-        
-        try {
-            // Initialize Rapier world
-            this.world = new RAPIER.World(new RAPIER.Vector3(
-                this.config.gravity.x,
-                this.config.gravity.y,
-                this.config.gravity.z
-            ));
-            
-            return true;
-        } catch (error) {
-            console.error('Failed to initialize Rapier physics:', error);
-            throw error;
-        }
-    }
-    
-    update(deltaTime) {
-        if (!this.world) return;
-        
-        // Simulate physics step
-        this.world.step();
-    }
-    
-    dispose() {
-        // Clean up Rapier resources
-        this.world = null;
-        this.bodies = [];
-    }
-}
-
-// PhysXPhysics implementation (stub)
-class PhysXPhysics {
-    constructor(config) {
-        this.config = config;
-        this.world = null;
-    }
-    
-    async initialize() {
-        if (typeof PhysX === 'undefined') {
-            throw new Error('PhysX not loaded');
-        }
-        
-        try {
-            // Initialize PhysX (this is a stub)
-            // In reality, PhysX initialization is more complex
-            
-            return true;
-        } catch (error) {
-            console.error('Failed to initialize PhysX physics:', error);
-            throw error;
-        }
-    }
-    
-    update(deltaTime) {
-        // This is a stub. Real PhysX implementation would go here.
-    }
-    
-    dispose() {
-        // Clean up PhysX resources
-        this.world = null;
-    }
-}
-
 // Three.js renderer implementation
 class ThreeRenderer {
     constructor(canvas, config) {
@@ -810,21 +539,6 @@ class ThreeRenderer {
     async initialize() {
         // Import Three.js modules
         try {
-            // Import THREE module if not globally available
-            let THREE;
-            try {
-                THREE = await import('three');
-                window.THREE = THREE;
-            } catch (error) {
-                console.error('Error importing THREE as module:', error);
-                
-                // Check if THREE is globally available
-                if (typeof window.THREE === 'undefined') {
-                    throw new Error('THREE.js not available');
-                }
-                THREE = window.THREE;
-            }
-            
             // Create THREE scene
             this.scene = new THREE.Scene();
             
@@ -1170,5 +884,268 @@ class BabylonRenderer {
         if (object && object.dispose) {
             object.dispose();
         }
+    }
+}
+
+// Cannon.js physics implementation
+class CannonPhysics {
+    constructor(config) {
+        this.config = config;
+        this.world = null;
+        this.bodies = [];
+        this.debugRenderer = null;
+    }
+    
+    async initialize() {
+        try {
+            // Check if CANNON is defined
+            if (typeof CANNON === 'undefined') {
+                // Try window.CANNON for legacy libraries
+                if (typeof window.CANNON !== 'undefined') {
+                    window.CANNON = window.CANNON;
+                } else {
+                    throw new Error('Cannon.js library not loaded properly');
+                }
+            }
+            
+            // Initialize Cannon world
+            this.world = new CANNON.World();
+            this.world.gravity.set(
+                this.config.gravity.x,
+                this.config.gravity.y,
+                this.config.gravity.z
+            );
+            
+            // Set solver iterations
+            this.world.solver.iterations = 10;
+            
+            // Enable broadphase optimization
+            this.world.broadphase = new CANNON.SAPBroadphase(this.world);
+            
+            // Enable sleeping for better performance
+            this.world.allowSleep = true;
+            
+            return true;
+        } catch (error) {
+            console.error('Failed to initialize Cannon.js physics:', error);
+            throw error;
+        }
+    }
+    
+    update(deltaTime) {
+        if (!this.world) return;
+        
+        // Limit max step to prevent tunneling at low framerates
+        const maxSubSteps = 3;
+        const fixedTimeStep = 1/60;
+        
+        this.world.step(fixedTimeStep, deltaTime, maxSubSteps);
+    }
+    
+    createBody(options) {
+        if (!this.world) return null;
+        
+        try {
+            const body = new CANNON.Body({
+                mass: options.mass,
+                position: new CANNON.Vec3(
+                    options.position.x,
+                    options.position.y,
+                    options.position.z
+                ),
+                shape: options.shape,
+                material: options.material
+            });
+            
+            this.world.addBody(body);
+            this.bodies.push(body);
+            
+            return body;
+        } catch (error) {
+            console.error('Error creating physics body:', error);
+            return null;
+        }
+    }
+    
+    removeBody(body) {
+        if (!this.world || !body) return;
+        
+        try {
+            this.world.removeBody(body);
+            const index = this.bodies.indexOf(body);
+            if (index >= 0) {
+                this.bodies.splice(index, 1);
+            }
+        } catch (error) {
+            console.error('Error removing physics body:', error);
+        }
+    }
+    
+    enableDebug(scene, renderer) {
+        if (this.config.debug && scene && renderer && !this.debugRenderer) {
+            try {
+                // Simple debug visualization
+                this.debugMeshes = [];
+                
+                // We'll implement a simple debug renderer here
+                // This will be improved in a real implementation
+            } catch (error) {
+                console.error('Error enabling physics debug:', error);
+            }
+        }
+    }
+    
+    dispose() {
+        if (this.debugRenderer) {
+            // Clean up debug renderer
+            this.debugRenderer = null;
+        }
+        
+        // Clear all bodies
+        if (this.world) {
+            this.bodies.forEach(body => {
+                this.world.removeBody(body);
+            });
+            this.bodies = [];
+            this.world = null;
+        }
+    }
+}
+
+// Ammo.js physics implementation (stub)
+class AmmoPhysics {
+    constructor(config) {
+        this.config = config;
+        this.world = null;
+        this.bodies = [];
+    }
+    
+    async initialize() {
+        if (typeof Ammo === 'undefined') {
+            throw new Error('Ammo.js not loaded');
+        }
+        
+        try {
+            // Wait for Ammo to initialize (it's asynchronous)
+            if (typeof Ammo === 'function') {
+                await new Promise(resolve => {
+                    Ammo().then(resolve);
+                });
+            }
+            
+            // Set up physics world
+            const collisionConfiguration = new Ammo.btDefaultCollisionConfiguration();
+            const dispatcher = new Ammo.btCollisionDispatcher(collisionConfiguration);
+            const broadphase = new Ammo.btDbvtBroadphase();
+            const solver = new Ammo.btSequentialImpulseConstraintSolver();
+            
+            this.world = new Ammo.btDiscreteDynamicsWorld(
+                dispatcher, 
+                broadphase, 
+                solver, 
+                collisionConfiguration
+            );
+            
+            // Set gravity
+            this.world.setGravity(new Ammo.btVector3(
+                this.config.gravity.x,
+                this.config.gravity.y,
+                this.config.gravity.z
+            ));
+            
+            return true;
+        } catch (error) {
+            console.error('Failed to initialize Ammo.js physics:', error);
+            throw error;
+        }
+    }
+    
+    update(deltaTime) {
+        if (!this.world) return;
+        
+        // Simulate physics with fixed timestep
+        this.world.stepSimulation(deltaTime, 10);
+    }
+    
+    dispose() {
+        // Clean up Ammo.js resources
+        // This is just a stub - proper Ammo cleanup would be needed
+        this.world = null;
+        this.bodies = [];
+    }
+}
+
+// RapierPhysics implementation (stub)
+class RapierPhysics {
+    constructor(config) {
+        this.config = config;
+        this.world = null;
+        this.bodies = [];
+    }
+    
+    async initialize() {
+        if (typeof RAPIER === 'undefined') {
+            throw new Error('Rapier not loaded');
+        }
+        
+        try {
+            // Initialize Rapier world
+            this.world = new RAPIER.World(new RAPIER.Vector3(
+                this.config.gravity.x,
+                this.config.gravity.y,
+                this.config.gravity.z
+            ));
+            
+            return true;
+        } catch (error) {
+            console.error('Failed to initialize Rapier physics:', error);
+            throw error;
+        }
+    }
+    
+    update(deltaTime) {
+        if (!this.world) return;
+        
+        // Simulate physics step
+        this.world.step();
+    }
+    
+    dispose() {
+        // Clean up Rapier resources
+        this.world = null;
+        this.bodies = [];
+    }
+}
+
+// PhysXPhysics implementation (stub)
+class PhysXPhysics {
+    constructor(config) {
+        this.config = config;
+        this.world = null;
+    }
+    
+    async initialize() {
+        if (typeof PhysX === 'undefined') {
+            throw new Error('PhysX not loaded');
+        }
+        
+        try {
+            // Initialize PhysX (this is a stub)
+            // In reality, PhysX initialization is more complex
+            
+            return true;
+        } catch (error) {
+            console.error('Failed to initialize PhysX physics:', error);
+            throw error;
+        }
+    }
+    
+    update(deltaTime) {
+        // This is a stub. Real PhysX implementation would go here.
+    }
+    
+    dispose() {
+        // Clean up PhysX resources
+        this.world = null;
     }
 }
