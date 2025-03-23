@@ -1,0 +1,53 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Engine with Fallbacks</title>
+    <link rel="stylesheet" href="styles.css">
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdnjs.cloudflare.com/ajax/libs/three.js/r160/three.module.js",
+            "three/addons/": "https://unpkg.com/three@r160/examples/jsm/",
+            "cannon-es": "https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.js",
+            "tweakpane": "https://cdn.jsdelivr.net/npm/tweakpane@3.1.10/dist/tweakpane.js"
+        }
+    }
+    </script>
+</head>
+<body>
+    <div id="loading-screen">
+        <div class="loading-container">
+            <h1>Loading Engine</h1>
+            <div class="progress-bar">
+                <div id="progress-fill"></div>
+            </div>
+            <p id="loading-status">Initializing...</p>
+        </div>
+    </div>
+
+    <div id="settings-panel" class="hidden">
+        <h2>Engine Settings</h2>
+        <div id="settings-container"></div>
+    </div>
+
+    <div id="error-screen" class="hidden">
+        <div class="error-container">
+            <h1>Error</h1>
+            <p id="error-message"></p>
+            <button id="try-fallback">Try Fallback</button>
+        </div>
+    </div>
+
+    <div id="performance-stats"></div>
+    <canvas id="renderCanvas"></canvas>
+
+    <script src="config.js" type="module"></script>
+    <script src="utils.js" type="module"></script>
+    <script src="loaders.js" type="module"></script>
+    <script src="engine.js" type="module"></script>
+    <script src="scene.js" type="module"></script>
+    <script src="main.js" type="module"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"4c6229722a6346bc8eb5cb0e5eae5d41","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+</body>
+</html>
