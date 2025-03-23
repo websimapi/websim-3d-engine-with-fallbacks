@@ -87,6 +87,7 @@ export class ChunkedScene {
         ground.rotation.x = -Math.PI / 2;
         ground.position.y = -5;
         ground.receiveShadow = true;
+        ground.name = "groundPlane";
         
         this.threeScene.add(ground);
         
@@ -159,6 +160,7 @@ export class ChunkedScene {
             );
             cube.castShadow = true;
             cube.receiveShadow = true;
+            cube.name = `testCube_${i}`;
             
             // Add physics for the cube
             if (this.engine.activeEngines.physics) {
@@ -194,6 +196,7 @@ export class ChunkedScene {
             );
             sphere.castShadow = true;
             sphere.receiveShadow = true;
+            sphere.name = `testSphere_${i}`;
             
             // Add physics for the sphere
             if (this.engine.activeEngines.physics) {
@@ -521,6 +524,7 @@ export class ChunkedScene {
             mesh.position.set(worldX + this.chunkSize/2, 0, worldZ + this.chunkSize/2);
             mesh.castShadow = true;
             mesh.receiveShadow = true;
+            mesh.name = `terrain_chunk_${chunkX}_${chunkZ}`;
             
             // Add to scene
             if (this.threeScene) {
