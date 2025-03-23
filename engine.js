@@ -537,6 +537,8 @@ class ThreeRenderer {
         this.scene = null;
         this.activeScene = null;
         this.clock = null;
+        this.composer = null;
+        this.aaPass = null;
     }
     
     async initialize() {
@@ -625,6 +627,19 @@ class ThreeRenderer {
         this.renderer.setSize(width, height);
         this.camera.aspect = width / height;
         this.camera.updateProjectionMatrix();
+        
+        // Update composer if exists
+        if (this.composer) {
+            this.composer.setSize(width, height);
+            
+            // Update SMAA pass if it exists
+            if (this.aaPass && this.aaPass.type === 'SMAAPass') {
+                this.aaPass.setSize(
+                    width * this.renderer.getPixelRatio(),
+                    height * this.renderer.getPixelRatio()
+                );
+            }
+        }
     }
     
     render(deltaTime) {
@@ -635,7 +650,12 @@ class ThreeRenderer {
             this.activeScene.updateCamera(this.camera, deltaTime);
         }
         
-        this.renderer.render(this.scene, this.camera);
+        // Use composer if available, otherwise use regular rendering
+        if (this.composer && config.rendering.antialias) {
+            this.composer.render();
+        } else {
+            this.renderer.render(this.scene, this.camera);
+        }
     }
     
     reset() {
@@ -676,34 +696,10 @@ class ThreeRenderer {
             }
         }
         
-        if (settings.antialias !== undefined && settings.antialias !== this.config.rendering.antialias) {
-            // Store the setting
-            this.config.rendering.antialias = settings.antialias;
-            
-            // Recreate the renderer with new antialias setting
-            const oldRenderer = this.renderer;
-            
-            this.renderer = new THREE.WebGLRenderer({
-                canvas: this.canvas,
-                antialias: settings.antialias,
-                alpha: false
-            });
-            
-            // Restore previous renderer settings
-            this.renderer.setSize(window.innerWidth, window.innerHeight);
-            this.renderer.setPixelRatio(oldRenderer.getPixelRatio());
-            
-            // Restore shadow settings if applicable
-            if (oldRenderer.shadowMap.enabled) {
-                this.renderer.shadowMap.enabled = true;
-                this.renderer.shadowMap.type = oldRenderer.shadowMap.type;
-                this.renderer.shadowMap.needsUpdate = true;
-            }
-            
-            // Dispose of old renderer to prevent memory leaks
-            oldRenderer.dispose();
-            
-            console.log(`Antialiasing ${settings.antialias ? 'enabled' : 'disabled'}`);
+        // Handle antialiasing settings
+        if ((settings.antialias !== undefined || settings.antialiasLevel !== undefined) && this.renderer) {
+            // Apply post-processing antialiasing based on level
+            this.applyAntialiasing(settings.antialias, settings.antialiasLevel);
         }
         
         if (settings.pixelRatio !== undefined && this.renderer) {
@@ -714,6 +710,75 @@ class ThreeRenderer {
             
             // Force resize to apply pixel ratio change
             this.resize(window.innerWidth, window.innerHeight);
+        }
+    }
+    
+    applyAntialiasing(enabled, level) {
+        if (!this.renderer || !this.scene || !this.camera) return;
+        
+        // Clean up existing post-processing if any
+        if (this.composer) {
+            this.composer.dispose();
+            this.composer = null;
+        }
+        
+        if (this.aaPass) {
+            this.aaPass.dispose();
+            this.aaPass = null;
+        }
+        
+        // If not enabled, just return to regular rendering
+        if (!enabled) return;
+        
+        // Import necessary post-processing modules dynamically
+        if (typeof THREE.EffectComposer === 'undefined') {
+            console.warn('EffectComposer not available, skipping antialiasing');
+            return;
+        }
+        
+        try {
+            // Create composer
+            this.composer = new THREE.EffectComposer(this.renderer);
+            
+            // Add render pass
+            const renderPass = new THREE.RenderPass(this.scene, this.camera);
+            this.composer.addPass(renderPass);
+            
+            // Add antialiasing pass based on level
+            switch (level) {
+                case 1: // FXAA
+                    if (typeof THREE.FXAAShader !== 'undefined') {
+                        const fxaaPass = new THREE.ShaderPass(THREE.FXAAShader);
+                        this.aaPass = fxaaPass;
+                        this.composer.addPass(fxaaPass);
+                    }
+                    break;
+                    
+                case 2: // SMAA
+                    if (typeof THREE.SMAAPass !== 'undefined') {
+                        const smaaPass = new THREE.SMAAPass(
+                            window.innerWidth * this.renderer.getPixelRatio(),
+                            window.innerHeight * this.renderer.getPixelRatio()
+                        );
+                        this.aaPass = smaaPass;
+                        this.composer.addPass(smaaPass);
+                    }
+                    break;
+                    
+                case 3: // TAA
+                    if (typeof THREE.TAARenderPass !== 'undefined') {
+                        const taaPass = new THREE.TAARenderPass(this.scene, this.camera);
+                        taaPass.sampleLevel = 3;
+                        this.aaPass = taaPass;
+                        this.composer.addPass(taaPass);
+                        renderPass.enabled = false;
+                    }
+                    break;
+            }
+            
+            console.log(`Applied antialiasing level: ${level}`);
+        } catch (error) {
+            console.error('Error setting up antialiasing:', error);
         }
     }
     
@@ -890,12 +955,6 @@ class BabylonRenderer {
                 this.shadowGenerator.dispose();
                 this.shadowGenerator = null;
             }
-        }
-        
-        if (settings.antialias !== undefined && settings.antialias !== this.config.rendering.antialias) {
-            console.log(`Babylon antialiasing ${settings.antialias ? 'enabled' : 'disabled'} - Note: Requires engine restart`);
-            this.config.rendering.antialias = settings.antialias;
-            // For Babylon, antialiasing can't be changed at runtime, needs engine restart
         }
         
         if (settings.pixelRatio !== undefined && this.engine) {

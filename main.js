@@ -71,7 +71,22 @@ class Application {
                 renderFolder.addInput(config.rendering, 'antialias').on('change', () => {
                     if (this.engine && this.engine.activeEngines.renderer) {
                         this.engine.activeEngines.renderer.updateSettings({ 
-                            antialias: config.rendering.antialias 
+                            antialias: config.rendering.antialias,
+                            antialiasLevel: config.rendering.antialiasLevel
+                        });
+                    }
+                });
+                
+                renderFolder.addInput(config.rendering, 'antialiasLevel', {
+                    min: 0,
+                    max: 3,
+                    step: 1,
+                    label: 'AA Quality'
+                }).on('change', () => {
+                    if (this.engine && this.engine.activeEngines.renderer) {
+                        this.engine.activeEngines.renderer.updateSettings({ 
+                            antialias: config.rendering.antialias,
+                            antialiasLevel: config.rendering.antialiasLevel
                         });
                     }
                 });
