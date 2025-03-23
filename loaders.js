@@ -22,28 +22,43 @@ export class ResourceManager {
         
         UI.showLoading(`Loading library: ${name}`);
         
-        try {
-            return new Promise((resolve, reject) => {
-                const script = document.createElement('script');
-                script.src = url;
-                script.async = true;
+        // Handle array of URLs (fallbacks)
+        const urls = Array.isArray(url) ? url : [url];
+        
+        for (let i = 0; i < urls.length; i++) {
+            try {
+                const currentUrl = urls[i];
+                const result = await new Promise((resolve, reject) => {
+                    const script = document.createElement('script');
+                    script.src = currentUrl;
+                    script.async = true;
+                    
+                    script.onload = () => {
+                        console.log(`Library loaded successfully: ${name} from ${currentUrl}`);
+                        this.loadedLibraries.set(name, true);
+                        resolve(true);
+                    };
+                    
+                    script.onerror = (error) => {
+                        console.warn(`Failed to load library from: ${currentUrl}`, error);
+                        reject(new Error(`Failed to load from ${currentUrl}`));
+                    };
+                    
+                    document.body.appendChild(script);
+                });
                 
-                script.onload = () => {
-                    console.log(`Library loaded: ${name}`);
-                    this.loadedLibraries.set(name, true);
-                    resolve(true);
-                };
+                // If we got here, the library loaded successfully
+                return result;
+            } catch (error) {
+                console.warn(`Attempt ${i+1}/${urls.length} failed for ${name}`);
                 
-                script.onerror = (error) => {
-                    console.error(`Failed to load library: ${name}`, error);
-                    reject(new Error(`Failed to load library: ${name}`));
-                };
-                
-                document.body.appendChild(script);
-            });
-        } catch (error) {
-            console.error(`Error loading library: ${name}`, error);
-            throw error;
+                // If this was the last attempt, throw the error
+                if (i === urls.length - 1) {
+                    console.error(`All ${urls.length} attempts failed for library: ${name}`);
+                    throw new Error(`Failed to load library: ${name}`);
+                }
+                // Otherwise continue to the next URL
+            }
         }
     }
     
@@ -228,4 +243,3 @@ export class ResourceManager {
         return this.resourceCache.delete(url);
     }
 }
-
