@@ -6,7 +6,7 @@ export const config = {
     rendering: {
         renderer: "three.js", // Options: "three.js", "babylon.js"
         antialias: true,
-        antialiasLevel: 2, // 0=off, 1=FXAA, 2=SMAA, 3=TAA
+        antialiasLevel: 2, // 0: Off, 1: Low, 2: Medium, 3: High
         shadows: true,
         pixelRatio: window.devicePixelRatio || 1,
         maxPixelRatio: 2, // Limit for performance

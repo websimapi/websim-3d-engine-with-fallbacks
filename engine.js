@@ -537,8 +537,6 @@ class ThreeRenderer {
         this.scene = null;
         this.activeScene = null;
         this.clock = null;
-        this.composer = null;
-        this.aaPass = null;
     }
     
     async initialize() {
@@ -553,6 +551,11 @@ class ThreeRenderer {
                 antialias: this.config.rendering.antialias,
                 alpha: false
             });
+            
+            // Apply antialias level settings
+            if (this.config.rendering.antialias) {
+                this.applyAntialiasSettings(this.config.rendering.antialiasLevel || 2);
+            }
             
             this.renderer.setSize(window.innerWidth, window.innerHeight);
             this.renderer.setPixelRatio(Math.min(
@@ -627,19 +630,6 @@ class ThreeRenderer {
         this.renderer.setSize(width, height);
         this.camera.aspect = width / height;
         this.camera.updateProjectionMatrix();
-        
-        // Update composer if exists
-        if (this.composer) {
-            this.composer.setSize(width, height);
-            
-            // Update SMAA pass if it exists
-            if (this.aaPass && this.aaPass.type === 'SMAAPass') {
-                this.aaPass.setSize(
-                    width * this.renderer.getPixelRatio(),
-                    height * this.renderer.getPixelRatio()
-                );
-            }
-        }
     }
     
     render(deltaTime) {
@@ -650,12 +640,7 @@ class ThreeRenderer {
             this.activeScene.updateCamera(this.camera, deltaTime);
         }
         
-        // Use composer if available, otherwise use regular rendering
-        if (this.composer && config.rendering.antialias) {
-            this.composer.render();
-        } else {
-            this.renderer.render(this.scene, this.camera);
-        }
+        this.renderer.render(this.scene, this.camera);
     }
     
     reset() {
@@ -696,12 +681,6 @@ class ThreeRenderer {
             }
         }
         
-        // Handle antialiasing settings
-        if ((settings.antialias !== undefined || settings.antialiasLevel !== undefined) && this.renderer) {
-            // Apply post-processing antialiasing based on level
-            this.applyAntialiasing(settings.antialias, settings.antialiasLevel);
-        }
-        
         if (settings.pixelRatio !== undefined && this.renderer) {
             this.renderer.setPixelRatio(Math.min(
                 settings.pixelRatio,
@@ -711,75 +690,41 @@ class ThreeRenderer {
             // Force resize to apply pixel ratio change
             this.resize(window.innerWidth, window.innerHeight);
         }
+        
+        if (settings.antialias !== undefined || settings.antialiasLevel !== undefined) {
+            // Can't change antialias setting after renderer creation in Three.js
+            // But we can apply different quality levels
+            if (settings.antialias && this.renderer) {
+                this.applyAntialiasSettings(settings.antialiasLevel || this.config.rendering.antialiasLevel);
+            }
+        }
     }
     
-    applyAntialiasing(enabled, level) {
-        if (!this.renderer || !this.scene || !this.camera) return;
+    applyAntialiasSettings(level) {
+        if (!this.renderer) return;
         
-        // Clean up existing post-processing if any
-        if (this.composer) {
-            this.composer.dispose();
-            this.composer = null;
+        // Apply antialias level settings
+        switch (level) {
+            case 1: // Low
+                this.renderer.setPixelRatio(Math.min(1, window.devicePixelRatio));
+                this.renderer.setSize(window.innerWidth * 0.9, window.innerHeight * 0.9, false);
+                break;
+            case 2: // Medium
+                this.renderer.setPixelRatio(Math.min(1.5, window.devicePixelRatio));
+                this.renderer.setSize(window.innerWidth, window.innerHeight, false);
+                break;
+            case 3: // High
+                this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
+                this.renderer.setSize(window.innerWidth * 1.1, window.innerHeight * 1.1, false);
+                break;
+            default: // Off or fallback to Low
+                this.renderer.setPixelRatio(1);
+                this.renderer.setSize(window.innerWidth * 0.9, window.innerHeight * 0.9, false);
         }
         
-        if (this.aaPass) {
-            this.aaPass.dispose();
-            this.aaPass = null;
-        }
-        
-        // If not enabled, just return to regular rendering
-        if (!enabled) return;
-        
-        // Import necessary post-processing modules dynamically
-        if (typeof THREE.EffectComposer === 'undefined') {
-            console.warn('EffectComposer not available, skipping antialiasing');
-            return;
-        }
-        
-        try {
-            // Create composer
-            this.composer = new THREE.EffectComposer(this.renderer);
-            
-            // Add render pass
-            const renderPass = new THREE.RenderPass(this.scene, this.camera);
-            this.composer.addPass(renderPass);
-            
-            // Add antialiasing pass based on level
-            switch (level) {
-                case 1: // FXAA
-                    if (typeof THREE.FXAAShader !== 'undefined') {
-                        const fxaaPass = new THREE.ShaderPass(THREE.FXAAShader);
-                        this.aaPass = fxaaPass;
-                        this.composer.addPass(fxaaPass);
-                    }
-                    break;
-                    
-                case 2: // SMAA
-                    if (typeof THREE.SMAAPass !== 'undefined') {
-                        const smaaPass = new THREE.SMAAPass(
-                            window.innerWidth * this.renderer.getPixelRatio(),
-                            window.innerHeight * this.renderer.getPixelRatio()
-                        );
-                        this.aaPass = smaaPass;
-                        this.composer.addPass(smaaPass);
-                    }
-                    break;
-                    
-                case 3: // TAA
-                    if (typeof THREE.TAARenderPass !== 'undefined') {
-                        const taaPass = new THREE.TAARenderPass(this.scene, this.camera);
-                        taaPass.sampleLevel = 3;
-                        this.aaPass = taaPass;
-                        this.composer.addPass(taaPass);
-                        renderPass.enabled = false;
-                    }
-                    break;
-            }
-            
-            console.log(`Applied antialiasing level: ${level}`);
-        } catch (error) {
-            console.error('Error setting up antialiasing:', error);
-        }
+        // Restore canvas size to 100%
+        this.renderer.domElement.style.width = '100%';
+        this.renderer.domElement.style.height = '100%';
     }
     
     dispose() {

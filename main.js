@@ -81,7 +81,12 @@ class Application {
                     min: 0,
                     max: 3,
                     step: 1,
-                    label: 'AA Quality'
+                    options: {
+                        'Off': 0,
+                        'Low': 1,
+                        'Medium': 2,
+                        'High': 3
+                    }
                 }).on('change', () => {
                     if (this.engine && this.engine.activeEngines.renderer) {
                         this.engine.activeEngines.renderer.updateSettings({ 

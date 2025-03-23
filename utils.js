@@ -206,6 +206,23 @@ export const DeviceCapabilities = {
         }
     },
     
+    // Check if anti-aliasing is supported
+    checkAntialiasSupport() {
+        try {
+            const canvas = document.createElement('canvas');
+            const contextAttributes = { antialias: true };
+            const gl = canvas.getContext('webgl', contextAttributes) || 
+                     canvas.getContext('experimental-webgl', contextAttributes);
+            
+            if (!gl) return false;
+            
+            // Check if antialias attribute is actually supported
+            return gl.getContextAttributes().antialias;
+        } catch (e) {
+            return false;
+        }
+    },
+    
     // Estimate device performance tier (0-3, where 3 is high-end)
     estimatePerformanceTier() {
         const hasWebGL2 = this.checkWebGL2();
