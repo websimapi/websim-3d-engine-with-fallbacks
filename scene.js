@@ -852,6 +852,18 @@ export class ChunkedScene {
             
             this.chunks.set(chunkId, chunk);
             this.totalChunks++;
+            
+            // Notify multiplayer manager of new chunk
+            if (this.multiplayerManager && this.multiplayerManager.initialized) {
+                const objects = this.multiplayerManager.getChunkObjects(chunkId);
+                if (!objects) {
+                    // Share our generated objects with other players
+                    const chunkObjects = chunk.objects || [];
+                    if (chunkObjects.length > 0) {
+                        this.multiplayerManager.saveChunkObjects(chunkId, chunkObjects);
+                    }
+                }
+            }
         }
     }
 
@@ -898,7 +910,7 @@ export class ChunkedScene {
         const chunkId = `${chunk.chunkX},${chunk.chunkZ}`;
         let storedObjects = null;
         
-        if (this.multiplayerManager) {
+        if (this.multiplayerManager && this.multiplayerManager.initialized) {
             storedObjects = this.multiplayerManager.getChunkObjects(chunkId);
         }
         
@@ -908,13 +920,9 @@ export class ChunkedScene {
             return;
         }
         
-        // Skip spawning objects in the origin chunk if already populated
-        if (worldX === 0 && worldZ === 0 && this.pickupObjects.length > 0) {
-            return;
-        }
-        
-        const chunkObjects = [];
-        
+        // Store generated objects for this chunk
+        chunk.objects = [];
+
         objectShapes.forEach(objectType => {
             for (let i = 0; i < objectType.count; i++) {
                 const material = new THREE.MeshStandardMaterial({
@@ -1011,8 +1019,8 @@ export class ChunkedScene {
                     // Add to our pickup objects array
                     this.pickupObjects.push({ mesh, body, id: objectId });
                     
-                    // Store for multiplayer
-                    chunkObjects.push({
+                    // Store for chunk reference and multiplayer
+                    chunk.objects.push({
                         id: objectId,
                         type: objectType.geometry.type,
                         position: { x: mesh.position.x, y: mesh.position.y, z: mesh.position.z },
@@ -1026,8 +1034,8 @@ export class ChunkedScene {
         });
         
         // Store the objects for this chunk in multiplayer manager
-        if (this.multiplayerManager && chunkObjects.length > 0) {
-            this.multiplayerManager.saveChunkObjects(chunkId, chunkObjects);
+        if (this.multiplayerManager && this.multiplayerManager.initialized && chunk.objects.length > 0) {
+            this.multiplayerManager.saveChunkObjects(chunkId, chunk.objects);
         }
     }
     
