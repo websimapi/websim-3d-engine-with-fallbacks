@@ -62,6 +62,8 @@ class Application {
                 
                 renderFolder.addInput(config.rendering, 'shadows').on('change', () => {
                     if (this.engine && this.engine.activeEngines.renderer) {
+                        // Track that shadows were manually changed
+                        config.performance.manualShadowSetting = config.rendering.shadows;
                         this.engine.activeEngines.renderer.updateSettings({ shadows: config.rendering.shadows });
                     }
                 });

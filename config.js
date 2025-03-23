@@ -28,6 +28,7 @@ export const config = {
         chunkLoadDistance: 3, // How many chunks to load around the camera
         chunkSize: 50, // Size of each world chunk
         chunkDetailLevels: 3, // LOD levels
+        manualShadowSetting: null, // Track if shadows were manually changed
     },
 
     // Camera settings

@@ -330,7 +330,8 @@ export class Engine {
         
         // If FPS is too low, reduce quality
         if (avgFPS < targetFPS * 0.8) {
-            if (config.rendering.shadows) {
+            // Only adjust shadows if they weren't manually toggled
+            if (config.rendering.shadows && config.performance.manualShadowSetting !== false) {
                 console.log('Reducing quality: Disabling shadows');
                 config.rendering.shadows = false;
                 if (this.activeEngines.renderer) {
@@ -360,7 +361,9 @@ export class Engine {
         
         // If FPS is very high, we can increase quality
         if (avgFPS > targetFPS * 1.5) {
-            if (!config.rendering.shadows && this.performanceMonitor.getAverageFPS() > targetFPS * 1.8) {
+            // Only adjust shadows if they weren't manually toggled
+            if (!config.rendering.shadows && config.performance.manualShadowSetting !== false && 
+                this.performanceMonitor.getAverageFPS() > targetFPS * 1.8) {
                 console.log('Increasing quality: Enabling shadows');
                 config.rendering.shadows = true;
                 if (this.activeEngines.renderer) {
@@ -663,12 +666,6 @@ class ThreeRenderer {
                          obj.type === 'SpotLight' || 
                          obj.type === 'PointLight')) {
                         obj.castShadow = settings.shadows;
-                    }
-                    
-                    // Also update meshes to stop casting/receiving shadows
-                    if (obj.isMesh) {
-                        obj.castShadow = settings.shadows;
-                        obj.receiveShadow = settings.shadows;
                     }
                 });
             }

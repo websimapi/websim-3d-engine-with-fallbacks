@@ -139,8 +139,8 @@ export class ChunkedScene {
                 15,
                 -20
             );
-            cube.castShadow = config.rendering.shadows;
-            cube.receiveShadow = config.rendering.shadows;
+            cube.castShadow = true;
+            cube.receiveShadow = true;
             this.threeScene.add(cube);
         }
         
@@ -159,8 +159,8 @@ export class ChunkedScene {
                 10,
                 20
             );
-            sphere.castShadow = config.rendering.shadows;
-            sphere.receiveShadow = config.rendering.shadows;
+            sphere.castShadow = true;
+            sphere.receiveShadow = true;
             this.threeScene.add(sphere);
         }
     }
