@@ -126,105 +126,11 @@ export class ChunkedScene {
         
         // Create small objects that can be picked up
         this.pickupObjects = [];
-        this.createPickupObjects();
         
         // Set up controls for the ball
         this.setupKatamariControls();
     }
-    
-    // Create various sized objects to pick up
-    createPickupObjects() {
-        const objectShapes = [
-            { 
-                geometry: new THREE.BoxGeometry(0.5, 0.5, 0.5),
-                mass: 0.5,
-                count: 20,
-                createShape: size => new CANNON.Box(new CANNON.Vec3(size/2, size/2, size/2)),
-                color: 0xff4444
-            },
-            { 
-                geometry: new THREE.SphereGeometry(0.3, 16, 16),
-                mass: 0.3,
-                count: 15,
-                createShape: radius => new CANNON.Sphere(radius),
-                color: 0x44ff44
-            },
-            { 
-                geometry: new THREE.ConeGeometry(0.3, 0.6, 16),
-                mass: 0.4,
-                count: 10,
-                createShape: size => new CANNON.Cylinder(0, size, size*2, 8),
-                color: 0x4444ff
-            }
-        ];
-        
-        objectShapes.forEach(objectType => {
-            for (let i = 0; i < objectType.count; i++) {
-                const material = new THREE.MeshStandardMaterial({
-                    color: objectType.color,
-                    roughness: 0.7,
-                    metalness: 0.2
-                });
-                
-                const mesh = new THREE.Mesh(objectType.geometry, material);
-                
-                // Random position - spread objects around
-                const angle = Math.random() * Math.PI * 2;
-                const distance = 5 + Math.random() * 30;
-                
-                mesh.position.set(
-                    Math.cos(angle) * distance,
-                    0.5 + Math.random() * 4,
-                    Math.sin(angle) * distance
-                );
-                
-                mesh.castShadow = true;
-                mesh.receiveShadow = true;
-                this.threeScene.add(mesh);
-                
-                // Add physics
-                if (this.engine.activeEngines.physics && this.engine.activeEngines.physics.world) {
-                    let size;
-                    let shape;
-                    
-                    if (objectType.geometry.type.includes('Sphere')) {
-                        size = objectType.geometry.parameters.radius;
-                        shape = objectType.createShape(size);
-                    } else if (objectType.geometry.type.includes('Box')) {
-                        size = objectType.geometry.parameters.width;
-                        shape = objectType.createShape(size);
-                    } else if (objectType.geometry.type.includes('Cone')) {
-                        size = objectType.geometry.parameters.radius;
-                        shape = objectType.createShape(size);
-                    }
-                    
-                    const body = new CANNON.Body({
-                        mass: objectType.mass,
-                        position: new CANNON.Vec3(mesh.position.x, mesh.position.y, mesh.position.z),
-                        shape: shape
-                    });
-                    
-                    // Store reference to visual object
-                    body.userData = { 
-                        visual: mesh,
-                        isPickup: true,
-                        originalMass: objectType.mass,
-                        size: size
-                    };
-                    
-                    this.engine.activeEngines.physics.world.addBody(body);
-                    this.engine.activeEngines.physics.bodies.push(body);
-                    
-                    // Store reference to physics body
-                    mesh.userData = { physicsBody: body };
-                    
-                    // Add to our pickup objects array
-                    this.pickupObjects.push({ mesh, body });
-                }
-            }
-        });
-    }
-    
+
     // Setup controls for moving the Katamari ball
     setupKatamariControls() {
         // Input state
@@ -371,9 +277,6 @@ export class ChunkedScene {
         skyboxMaterial.diffuseColor = new BABYLON.Color3(0.53, 0.81, 0.92); // Sky blue
         skyboxMaterial.specularColor = new BABYLON.Color3(0, 0, 0);
         skybox.material = skyboxMaterial;
-        
-        // Initialize pickup objects array if needed
-        this.pickupObjects = this.pickupObjects || [];
     }
     
     // Update based on current configuration
@@ -799,11 +702,119 @@ export class ChunkedScene {
         }
         
         if (chunk) {
+            // Create pickup objects in this chunk
+            if (this.engine.currentRenderingEngine === 'three.js') {
+                this.createPickupObjectsInChunk(chunk, worldX, worldZ);
+            }
+            
             this.chunks.set(chunkId, chunk);
             this.totalChunks++;
         }
     }
-    
+
+    // Create pickup objects within a specific chunk
+    createPickupObjectsInChunk(chunk, worldX, worldZ) {
+        if (!this.threeScene) return;
+        
+        const objectShapes = [
+            { 
+                geometry: new THREE.BoxGeometry(0.5, 0.5, 0.5),
+                mass: 0.5,
+                count: 3 + Math.floor(Math.random() * 3), // 3-5 per chunk
+                createShape: size => new CANNON.Box(new CANNON.Vec3(size/2, size/2, size/2)),
+                color: 0xff4444
+            },
+            { 
+                geometry: new THREE.SphereGeometry(0.3, 16, 16),
+                mass: 0.3,
+                count: 2 + Math.floor(Math.random() * 3), // 2-4 per chunk
+                createShape: radius => new CANNON.Sphere(radius),
+                color: 0x44ff44
+            },
+            { 
+                geometry: new THREE.ConeGeometry(0.3, 0.6, 16),
+                mass: 0.4,
+                count: 1 + Math.floor(Math.random() * 3), // 1-3 per chunk
+                createShape: size => new CANNON.Cylinder(0, size, size*2, 8),
+                color: 0x4444ff
+            }
+        ];
+        
+        // Skip spawning objects in the origin chunk (they're already there from the start)
+        if (worldX === 0 && worldZ === 0) {
+            return;
+        }
+        
+        objectShapes.forEach(objectType => {
+            for (let i = 0; i < objectType.count; i++) {
+                const material = new THREE.MeshStandardMaterial({
+                    color: objectType.color,
+                    roughness: 0.7,
+                    metalness: 0.2
+                });
+                
+                const mesh = new THREE.Mesh(objectType.geometry, material);
+                
+                // Position within this chunk
+                const offsetX = Math.random() * this.chunkSize;
+                const offsetZ = Math.random() * this.chunkSize;
+                
+                // Get terrain height at this position for proper placement
+                const terrainHeight = this.getTerrainHeight(worldX + offsetX, worldZ + offsetZ);
+                
+                mesh.position.set(
+                    worldX + offsetX,
+                    Math.max(terrainHeight, 0) + 3 + Math.random() * 2, // Place a bit above terrain
+                    worldZ + offsetZ
+                );
+                
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
+                this.threeScene.add(mesh);
+                
+                // Add physics
+                if (this.engine.activeEngines.physics && this.engine.activeEngines.physics.world) {
+                    let size;
+                    let shape;
+                    
+                    if (objectType.geometry.type.includes('Sphere')) {
+                        size = objectType.geometry.parameters.radius;
+                        shape = objectType.createShape(size);
+                    } else if (objectType.geometry.type.includes('Box')) {
+                        size = objectType.geometry.parameters.width;
+                        shape = objectType.createShape(size);
+                    } else if (objectType.geometry.type.includes('Cone')) {
+                        size = objectType.geometry.parameters.radius;
+                        shape = objectType.createShape(size);
+                    }
+                    
+                    const body = new CANNON.Body({
+                        mass: objectType.mass,
+                        position: new CANNON.Vec3(mesh.position.x, mesh.position.y, mesh.position.z),
+                        shape: shape
+                    });
+                    
+                    // Store reference to visual object
+                    body.userData = { 
+                        visual: mesh,
+                        isPickup: true,
+                        originalMass: objectType.mass,
+                        size: size
+                    };
+                    
+                    this.engine.activeEngines.physics.world.addBody(body);
+                    this.engine.activeEngines.physics.bodies.push(body);
+                    
+                    // Store reference to physics body
+                    mesh.userData = { physicsBody: body };
+                    
+                    // Add to our pickup objects array
+                    this.pickupObjects.push({ mesh, body });
+                }
+            }
+        });
+    }
+
     // Unload a chunk by ID
     unloadChunk(chunkId) {
         const chunk = this.chunks.get(chunkId);
@@ -823,6 +834,9 @@ export class ChunkedScene {
                             chunk.mesh.material.dispose();
                         }
                     }
+                    
+                    // Also remove and dispose of pickup objects in this chunk
+                    this.removePickupObjectsInChunk(chunk);
                 }
             } else if (this.engine.currentRenderingEngine === 'babylon.js') {
                 // Dispose of Babylon resources
@@ -835,6 +849,59 @@ export class ChunkedScene {
         }
     }
     
+    // Remove pickup objects when a chunk is unloaded
+    removePickupObjectsInChunk(chunk) {
+        if (!this.pickupObjects) return;
+        
+        // Calculate chunk boundaries
+        const minX = chunk.chunkX * this.chunkSize;
+        const maxX = minX + this.chunkSize;
+        const minZ = chunk.chunkZ * this.chunkSize;
+        const maxZ = minZ + this.chunkSize;
+        
+        // Find objects that are in this chunk
+        for (let i = this.pickupObjects.length - 1; i >= 0; i--) {
+            const object = this.pickupObjects[i];
+            if (!object.body || !object.mesh) continue;
+            
+            // Skip objects that are attached to the player
+            if (object.body.userData && object.body.userData.isAttached) continue;
+            
+            const posX = object.body.position.x;
+            const posZ = object.body.position.z;
+            
+            // If object is in this chunk's bounds
+            if (posX >= minX && posX < maxX && posZ >= minZ && posZ < maxZ) {
+                // Remove from scene
+                this.threeScene.remove(object.mesh);
+                
+                // Dispose geometry and materials
+                if (object.mesh.geometry) object.mesh.geometry.dispose();
+                if (object.mesh.material) {
+                    if (Array.isArray(object.mesh.material)) {
+                        object.mesh.material.forEach(m => m.dispose());
+                    } else {
+                        object.mesh.material.dispose();
+                    }
+                }
+                
+                // Remove from physics world
+                if (this.engine.activeEngines.physics && this.engine.activeEngines.physics.world) {
+                    this.engine.activeEngines.physics.world.removeBody(object.body);
+                    
+                    // Remove from physics bodies array
+                    const bodyIndex = this.engine.activeEngines.physics.bodies.indexOf(object.body);
+                    if (bodyIndex >= 0) {
+                        this.engine.activeEngines.physics.bodies.splice(bodyIndex, 1);
+                    }
+                }
+                
+                // Remove from pickups array
+                this.pickupObjects.splice(i, 1);
+            }
+        }
+    }
+
     // Create a Three.js chunk
     createThreeChunk(chunkX, chunkZ, worldX, worldZ) {
         try {
@@ -882,9 +949,6 @@ export class ChunkedScene {
             // Add to scene
             if (this.threeScene) {
                 this.threeScene.add(mesh);
-                
-                // Add random objects to the chunk
-                this.populateChunkWithObjects(chunkX, chunkZ, worldX, worldZ);
             }
             
             return { mesh, chunkX, chunkZ };
@@ -894,130 +958,44 @@ export class ChunkedScene {
         }
     }
     
-    // Populate a chunk with random objects
-    populateChunkWithObjects(chunkX, chunkZ, worldX, worldZ) {
-        // Skip the center chunk to avoid object clustering near player spawn
-        if (chunkX === 0 && chunkZ === 0) return;
+    // Apply vertex colors to Three.js geometry based on height
+    applyColorToThreeGeometry(geometry) {
+        const vertices = geometry.attributes.position.array;
+        const colors = new Float32Array(vertices.length);
         
-        // Number of objects depends on distance from center to avoid crowding
-        const distanceFromCenter = Math.sqrt(chunkX * chunkX + chunkZ * chunkZ);
-        const objectCount = Math.floor(Math.random() * 5) + 1;
-        
-        const objectTypes = [
-            {
-                geometry: new THREE.BoxGeometry(0.5, 0.5, 0.5),
-                mass: 0.5,
-                createShape: size => new CANNON.Box(new CANNON.Vec3(size/2, size/2, size/2)),
-                color: 0xff4444
-            },
-            {
-                geometry: new THREE.SphereGeometry(0.3, 16, 16),
-                mass: 0.3,
-                createShape: radius => new CANNON.Sphere(radius),
-                color: 0x44ff44
-            },
-            {
-                geometry: new THREE.ConeGeometry(0.3, 0.6, 16),
-                mass: 0.4,
-                createShape: size => new CANNON.Cylinder(0, size, size*2, 8),
-                color: 0x4444ff
-            },
-            {
-                geometry: new THREE.TetrahedronGeometry(0.4),
-                mass: 0.35,
-                createShape: size => new CANNON.Box(new CANNON.Vec3(size/2, size/2, size/2)),
-                color: 0xffaa00
-            },
-            {
-                geometry: new THREE.TorusGeometry(0.3, 0.1, 8, 16),
-                mass: 0.25,
-                createShape: size => new CANNON.Sphere(size),
-                color: 0xaa44ff
+        for (let i = 0; i < vertices.length; i += 3) {
+            const height = vertices[i+1];
+            
+            // Generate color based on height
+            let color;
+            if (height < 0) {
+                // Water - blue
+                color = new THREE.Color(0x0077be);
+            } else if (height < 3) {
+                // Sand - tan
+                color = new THREE.Color(0xc2b280);
+            } else if (height < 12) {
+                // Grass - green
+                color = new THREE.Color(0x567d46);
+            } else if (height < 35) {
+                // Forest - dark green
+                color = new THREE.Color(0x2d4c1e);
+            } else if (height < 60) {
+                // Mountain - gray brown
+                color = new THREE.Color(0x7d6b5d);
+            } else {
+                // Snow peaks - white
+                color = new THREE.Color(0xeeeeee);
             }
-        ];
-        
-        for (let i = 0; i < objectCount; i++) {
-            // Pick a random object type
-            const objectType = objectTypes[Math.floor(Math.random() * objectTypes.length)];
             
-            const material = new THREE.MeshStandardMaterial({
-                color: objectType.color,
-                roughness: 0.7,
-                metalness: 0.2
-            });
-            
-            const mesh = new THREE.Mesh(objectType.geometry, material);
-            
-            // Position within chunk - avoid edges
-            const margin = this.chunkSize * 0.1;
-            const xPos = worldX + margin + Math.random() * (this.chunkSize - margin * 2);
-            const zPos = worldZ + margin + Math.random() * (this.chunkSize - margin * 2);
-            
-            // Find height at this position
-            const yPos = Math.max(1, this.getTerrainHeight(xPos, zPos) + 0.5 + Math.random() * 5);
-            
-            mesh.position.set(xPos, yPos, zPos);
-            mesh.castShadow = true;
-            mesh.receiveShadow = true;
-            
-            // Random rotation
-            mesh.rotation.set(
-                Math.random() * Math.PI * 2,
-                Math.random() * Math.PI * 2,
-                Math.random() * Math.PI * 2
-            );
-            
-            this.threeScene.add(mesh);
-            
-            // Add physics
-            if (this.engine.activeEngines.physics && this.engine.activeEngines.physics.world) {
-                let size;
-                let shape;
-                
-                if (objectType.geometry.type.includes('Sphere')) {
-                    size = objectType.geometry.parameters.radius;
-                    shape = objectType.createShape(size);
-                } else if (objectType.geometry.type.includes('Box')) {
-                    size = objectType.geometry.parameters.width;
-                    shape = objectType.createShape(size);
-                } else if (objectType.geometry.type.includes('Cone')) {
-                    size = objectType.geometry.parameters.radius;
-                    shape = objectType.createShape(size);
-                } else if (objectType.geometry.type.includes('Tetrahedron')) {
-                    size = objectType.geometry.parameters.radius;
-                    shape = objectType.createShape(size);
-                } else if (objectType.geometry.type.includes('Torus')) {
-                    size = objectType.geometry.parameters.radius;
-                    shape = objectType.createShape(size);
-                } else {
-                    size = 0.3;
-                    shape = new CANNON.Sphere(size);
-                }
-                
-                const body = new CANNON.Body({
-                    mass: objectType.mass,
-                    position: new CANNON.Vec3(mesh.position.x, mesh.position.y, mesh.position.z),
-                    shape: shape
-                });
-                
-                // Store reference to visual object
-                body.userData = { 
-                    visual: mesh,
-                    isPickup: true,
-                    originalMass: objectType.mass,
-                    size: size
-                };
-                
-                this.engine.activeEngines.physics.world.addBody(body);
-                this.engine.activeEngines.physics.bodies.push(body);
-                
-                // Store reference to physics body
-                mesh.userData = { physicsBody: body };
-                
-                // Add to our pickup objects array
-                this.pickupObjects.push({ mesh, body });
-            }
+            // Set RGB values
+            colors[i] = color.r;
+            colors[i+1] = color.g;
+            colors[i+2] = color.b;
         }
+        
+        // Add colors to geometry
+        geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     }
     
     // Create a Babylon.js chunk
