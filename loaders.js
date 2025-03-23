@@ -1,7 +1,7 @@
 /**
  * Library loaders and resource management
  */
-import { libraries } from './config.js';
+import { libraries, config } from './config.js';
 import { UI } from './utils.js';
 
 // Manages library loading and resource acquisition
@@ -15,7 +15,7 @@ export class ResourceManager {
     }
 
     // Load a JavaScript library from URL
-    async loadLibrary(name, url) {
+    async loadLibrary(name, url, optional = false) {
         if (this.loadedLibraries.has(name)) {
             return this.loadedLibraries.get(name);
         }
@@ -28,14 +28,6 @@ export class ResourceManager {
         for (let i = 0; i < urls.length; i++) {
             try {
                 const currentUrl = urls[i];
-                
-                // Skip loading cannon-es if it's already available (loaded via script tag)
-                if (name === 'cannon-es' && typeof CANNON !== 'undefined') {
-                    console.log(`Library ${name} already available, skipping load`);
-                    this.loadedLibraries.set(name, true);
-                    return true;
-                }
-                
                 const result = await new Promise((resolve, reject) => {
                     const script = document.createElement('script');
                     script.src = currentUrl;
@@ -63,6 +55,10 @@ export class ResourceManager {
                 // If this was the last attempt, throw the error
                 if (i === urls.length - 1) {
                     console.error(`All ${urls.length} attempts failed for library: ${name}`);
+                    if (optional) {
+                        console.warn(`Library ${name} is optional, continuing without it`);
+                        return false;
+                    }
                     throw new Error(`Failed to load library: ${name}`);
                 }
                 // Otherwise continue to the next URL
@@ -81,11 +77,14 @@ export class ResourceManager {
                 url: libraries['three.js']
             });
             
-            // Also add three-mesh-bvh for optimized collision
-            librariesToLoad.push({
-                name: 'three-mesh-bvh',
-                url: libraries['three-mesh-bvh']
-            });
+            // Only load three-mesh-bvh if enabled in config
+            if (config.features && config.features.meshBVH) {
+                librariesToLoad.push({
+                    name: 'three-mesh-bvh',
+                    url: libraries['three-mesh-bvh'],
+                    optional: true  // Mark as optional so failure won't stop loading
+                });
+            }
         } else if (renderingEngine === 'babylon.js') {
             librariesToLoad.push({
                 name: 'babylon-core',
@@ -132,9 +131,18 @@ export class ResourceManager {
         // Load all libraries in parallel
         try {
             const promises = librariesToLoad.map(lib => {
-                return this.loadLibrary(lib.name, lib.url).then(() => {
+                return this.loadLibrary(lib.name, lib.url, lib.optional).then(() => {
                     loadedCount++;
                     UI.updateProgress((loadedCount / totalLibraries) * 100);
+                }).catch(error => {
+                    // If library is optional, continue without it
+                    if (lib.optional) {
+                        console.warn(`Optional library ${lib.name} failed to load, continuing without it`);
+                        loadedCount++;
+                        UI.updateProgress((loadedCount / totalLibraries) * 100);
+                        return true; // Continue execution
+                    }
+                    throw error; // Re-throw for non-optional libraries
                 });
             });
             

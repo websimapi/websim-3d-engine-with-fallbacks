@@ -47,6 +47,11 @@ export const config = {
         terrainType: "perlin", // Options: "perlin", "flat", "procedural"
         terrainHeight: 70,
         terrainScale: 0.005,
+    },
+    
+    // Optional features
+    features: {
+        meshBVH: false  // Set to false by default since CDN links are having issues
     }
 };
 
@@ -68,5 +73,14 @@ export const libraries = {
         core: "https://cdn.babylonjs.com/babylon.js",
         physics: "https://cdn.babylonjs.com/babylon.physics.min.js"
     },
-    "cannon-es": "./cannon.min.js", // Using local file
+    "cannon-es": "https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.min.js",
+    "ammo.js": "https://cdn.jsdelivr.net/npm/ammo.js@0.0.10/ammo.js",
+    "physx": "https://cdn.jsdelivr.net/npm/@dimforge/physx@0.2.2/physx.js",
+    "rapier": "https://cdn.jsdelivr.net/npm/@dimforge/rapier3d@0.11.2/rapier.min.js",
+    "three-mesh-bvh": [
+        "https://cdn.jsdelivr.net/npm/three-mesh-bvh@0.6.6/three-mesh-bvh.umd.js",
+        "https://unpkg.com/three-mesh-bvh@0.6.6/three-mesh-bvh.umd.js",
+        "https://cdn.skypack.dev/three-mesh-bvh@0.6.6"
+    ],
+    "tweakpane": "https://cdn.jsdelivr.net/npm/tweakpane@3.1.10/dist/tweakpane.min.js"
 };
