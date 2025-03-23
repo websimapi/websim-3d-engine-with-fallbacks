@@ -26,7 +26,7 @@ export const config = {
         targetFPS: 60,
         adaptiveQuality: true, // Automatically adjust quality for performance
         showStats: true,
-        chunkLoadDistance: 3, // How many chunks to load around the camera
+        chunkLoadDistance: 2, // Reduced from 3 to 2 for better performance
         chunkSize: 50, // Size of each world chunk
         chunkDetailLevels: 3, // LOD levels
         manualShadowSetting: null, // Track if shadows were manually changed
