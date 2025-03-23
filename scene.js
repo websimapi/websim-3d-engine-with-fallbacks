@@ -3,6 +3,7 @@
  */
 import { config } from './config.js';
 import { MathUtils } from './utils.js';
+import { CharacterController } from './character.js';
 
 export class ChunkedScene {
     constructor(engine) {
@@ -28,6 +29,8 @@ export class ChunkedScene {
         // Babylon.js specific objects
         this.babylonScene = null;
         
+        this.character = null;
+        
         this.initialize();
     }
     
@@ -43,6 +46,21 @@ export class ChunkedScene {
         
         // Update chunk settings
         this.updateChunkSettings();
+        
+        // Initialize character
+        if (this.engine.activeEngines.renderer && this.engine.currentRenderingEngine === 'three.js') {
+            setTimeout(() => {
+                this.initializeCharacter();
+            }, 1000); // Slight delay to ensure scene is ready
+        }
+    }
+    
+    async initializeCharacter() {
+        try {
+            this.character = new CharacterController(this.engine, this);
+        } catch (error) {
+            console.error('Failed to initialize character:', error);
+        }
     }
     
     // Initialize for Three.js renderer
@@ -226,6 +244,11 @@ export class ChunkedScene {
             this.updateVisibleChunks(chunkX, chunkZ);
             this.lastCameraChunkX = chunkX;
             this.lastCameraChunkZ = chunkZ;
+        }
+        
+        // Update character
+        if (this.character) {
+            this.character.update(deltaTime);
         }
     }
     
@@ -604,6 +627,12 @@ export class ChunkedScene {
         
         this.chunks.clear();
         this.activeChunks.clear();
+        
+        // Dispose character
+        if (this.character) {
+            this.character.dispose();
+            this.character = null;
+        }
         
         // Clean up renderer-specific resources
         if (this.engine.currentRenderingEngine === 'three.js') {

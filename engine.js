@@ -135,6 +135,11 @@ export class Engine {
             // Create the appropriate renderer
             if (this.currentRenderingEngine === 'three.js') {
                 renderer = new ThreeRenderer(this.canvas, config);
+                
+                // Also load the GLTFLoader for character models
+                if (typeof THREE !== 'undefined') {
+                    THREE.GLTFLoader = await import('three/addons/loaders/GLTFLoader.js').then(m => m.GLTFLoader);
+                }
             } else if (this.currentRenderingEngine === 'babylon.js') {
                 renderer = new BabylonRenderer(this.canvas, config);
             } else {
