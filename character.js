@@ -30,6 +30,12 @@ export class Character {
         // Load the character model
         const loader = new THREE.GLTFLoader();
         
+        if (!THREE.GLTFLoader) {
+            console.error('GLTFLoader not available - dynamically importing');
+            // Dynamically import GLTFLoader
+            await import('three/addons/loaders/GLTFLoader.js');
+        }
+        
         return new Promise((resolve, reject) => {
             loader.load(config.character.model, (gltf) => {
                 this.model = gltf.scene;
@@ -41,8 +47,8 @@ export class Character {
                     config.character.scale
                 );
                 
-                // Position the model
-                this.model.position.set(0, 0, 0);
+                // Position the model slightly above ground to avoid z-fighting
+                this.model.position.set(0, 0.1, 0);
                 
                 // Make sure model casts and receives shadows
                 this.model.traverse((node) => {
@@ -55,11 +61,15 @@ export class Character {
                 // Add to scene
                 if (this.scene.threeScene) {
                     this.scene.threeScene.add(this.model);
+                    console.log('Character model added to scene');
+                } else {
+                    console.error('Cannot add character - scene not available');
                 }
                 
                 // Set up animations
                 if (gltf.animations && gltf.animations.length) {
                     this.mixer = new THREE.AnimationMixer(this.model);
+                    console.log('Animations found:', gltf.animations.map(a => a.name).join(', '));
                     
                     // Create animation actions
                     gltf.animations.forEach((clip) => {
@@ -79,10 +89,21 @@ export class Character {
                         const firstAnimName = gltf.animations[0].name;
                         this.playAnimation(firstAnimName);
                     }
+                } else {
+                    console.warn('No animations found in the model');
                 }
                 
                 resolve(gltf);
-            }, undefined, reject);
+            }, 
+            // Show loading progress
+            (xhr) => {
+                console.log(`Character loading: ${(xhr.loaded / xhr.total * 100).toFixed(2)}%`);
+            },
+            // Handle errors
+            (error) => {
+                console.error('Error loading character model:', error);
+                reject(error);
+            });
         });
     }
     

@@ -58,7 +58,7 @@ export const config = {
     character: {
         moveSpeed: 5,
         turnSpeed: 5,
-        model: "https://cdn.jsdelivr.net/gh/mrdoob/three.js@dev/examples/models/gltf/Xbot.glb",
+        model: "https://cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/models/gltf/Soldier.glb",
         scale: 1,
         animations: {
             idle: "idle",
