@@ -1,6 +1,7 @@
 /**
  * Utility functions for the engine
  */
+import { config } from './config.js';
 
 // Performance monitoring
 export class PerformanceMonitor {
