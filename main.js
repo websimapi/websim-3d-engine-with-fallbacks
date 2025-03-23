@@ -3,7 +3,6 @@
  */
 import { Engine } from './engine.js';
 import { ChunkedScene } from './scene.js';
-import { CharacterController } from './CharacterController.js';
 import { config } from './config.js';
 import { UI } from './utils.js';
 

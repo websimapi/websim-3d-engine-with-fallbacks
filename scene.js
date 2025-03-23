@@ -3,7 +3,7 @@
  */
 import { config } from './config.js';
 import { MathUtils } from './utils.js';
-import { CharacterController } from './CharacterController.js';
+import { Character } from './character.js';
 
 export class ChunkedScene {
     constructor(engine) {
@@ -28,6 +28,9 @@ export class ChunkedScene {
         
         // Babylon.js specific objects
         this.babylonScene = null;
+        
+        // Character
+        this.character = null;
         
         this.initialize();
     }
@@ -81,6 +84,54 @@ export class ChunkedScene {
         
         // Set up sunlight for day/night cycle
         this.setupDayNightCycle();
+        
+        // Add character instead of test objects
+        this.addCharacter();
+    }
+    
+    // Add character to the scene
+    addCharacter() {
+        // Wait for renderer to be available
+        if (this.engine.activeEngines.renderer) {
+            this.character = new Character(this, this.engine.activeEngines.renderer);
+        }
+    }
+    
+    // Remove the test objects function
+    addTestObjects() {
+        // Function intentionally empty - no test objects
+    }
+
+    // Initialize for Babylon.js renderer
+    initializeBabylonScene() {
+        if (!this.engine.activeEngines.renderer || !this.engine.activeEngines.renderer.scene) {
+            console.error('Cannot initialize Babylon scene - no renderer scene available');
+            return;
+        }
+        
+        this.babylonScene = this.engine.activeEngines.renderer.scene;
+        
+        // Add a ground plane that extends far
+        const ground = BABYLON.MeshBuilder.CreateGround(
+            'ground', 
+            { width: 10000, height: 10000 }, 
+            this.babylonScene
+        );
+        
+        const groundMaterial = new BABYLON.StandardMaterial('groundMaterial', this.babylonScene);
+        groundMaterial.diffuseColor = new BABYLON.Color3(0.2, 0.2, 0.2);
+        groundMaterial.specularColor = new BABYLON.Color3(0.1, 0.1, 0.1);
+        ground.material = groundMaterial;
+        ground.position.y = -5;
+        ground.receiveShadows = true;
+        
+        // Set skybox
+        const skybox = BABYLON.MeshBuilder.CreateBox('skyBox', { size: 1000 }, this.babylonScene);
+        const skyboxMaterial = new BABYLON.StandardMaterial('skyBoxMaterial', this.babylonScene);
+        skyboxMaterial.backFaceCulling = false;
+        skyboxMaterial.diffuseColor = new BABYLON.Color3(0.53, 0.81, 0.92); // Sky blue
+        skyboxMaterial.specularColor = new BABYLON.Color3(0, 0, 0);
+        skybox.material = skyboxMaterial;
     }
     
     // Setup day/night cycle lighting
@@ -117,101 +168,6 @@ export class ChunkedScene {
         
         // Update lighting based on current time
         this.updateDayNightCycle(0);
-        
-        // Add character controller instead of test objects
-        this.addCharacterController();
-    }
-    
-    // Add character controller for player movement
-    addCharacterController() {
-        // Create a player controller
-        this.player = new CharacterController(this.threeScene);
-        
-        // Set up click-to-move system
-        this.setupClickToMove();
-    }
-    
-    // Set up click-to-move navigation
-    setupClickToMove() {
-        if (!this.threeScene) return;
-        
-        // Create a raycaster for mouse picking
-        this.raycaster = new THREE.Raycaster();
-        this.mouse = new THREE.Vector2();
-        
-        // Add event listener for mouse click
-        document.addEventListener('click', (event) => {
-            // Calculate mouse position in normalized device coordinates
-            this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-            this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-            
-            // Update the picking ray with the camera and mouse position
-            this.raycaster.setFromCamera(this.mouse, this.engine.activeEngines.renderer.getCamera());
-            
-            // Calculate objects intersecting the picking ray
-            const groundObjects = [];
-            this.threeScene.traverse((object) => {
-                if (object.isMesh && (object.name === 'ground' || object.userData.isChunk)) {
-                    groundObjects.push(object);
-                }
-            });
-            
-            const intersects = this.raycaster.intersectObjects(groundObjects, false);
-            
-            if (intersects.length > 0) {
-                // Get the point where the ray hit the mesh
-                const targetPosition = intersects[0].point;
-                
-                // Tell the player to move to that position
-                if (this.player) {
-                    this.player.moveTo(targetPosition);
-                }
-            }
-        });
-        
-        // Create a navigation marker to show where the player is moving to
-        const markerGeometry = new THREE.CylinderGeometry(0.5, 0, 2, 12);
-        const markerMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-        this.navMarker = new THREE.Mesh(markerGeometry, markerMaterial);
-        this.navMarker.visible = false;
-        this.threeScene.add(this.navMarker);
-    }
-    
-    // Add test objects to demonstrate shadows
-    addTestObjects() {
-        // Method kept empty intentionally - test objects removed
-    }
-    
-    // Initialize for Babylon.js renderer
-    initializeBabylonScene() {
-        if (!this.engine.activeEngines.renderer || !this.engine.activeEngines.renderer.scene) {
-            console.error('Cannot initialize Babylon scene - no renderer scene available');
-            return;
-        }
-        
-        this.babylonScene = this.engine.activeEngines.renderer.scene;
-        
-        // Add a ground plane that extends far
-        const ground = BABYLON.MeshBuilder.CreateGround(
-            'ground', 
-            { width: 10000, height: 10000 }, 
-            this.babylonScene
-        );
-        
-        const groundMaterial = new BABYLON.StandardMaterial('groundMaterial', this.babylonScene);
-        groundMaterial.diffuseColor = new BABYLON.Color3(0.2, 0.2, 0.2);
-        groundMaterial.specularColor = new BABYLON.Color3(0.1, 0.1, 0.1);
-        ground.material = groundMaterial;
-        ground.position.y = -5;
-        ground.receiveShadows = true;
-        
-        // Set skybox
-        const skybox = BABYLON.MeshBuilder.CreateBox('skyBox', { size: 1000 }, this.babylonScene);
-        const skyboxMaterial = new BABYLON.StandardMaterial('skyBoxMaterial', this.babylonScene);
-        skyboxMaterial.backFaceCulling = false;
-        skyboxMaterial.diffuseColor = new BABYLON.Color3(0.53, 0.81, 0.92); // Sky blue
-        skyboxMaterial.specularColor = new BABYLON.Color3(0, 0, 0);
-        skybox.material = skyboxMaterial;
     }
     
     // Update based on current configuration
@@ -231,11 +187,6 @@ export class ChunkedScene {
             this.updateDayNightCycle(deltaTime);
         }
         
-        // Update player
-        if (this.player) {
-            this.player.update(deltaTime);
-        }
-        
         // Get current camera position
         const cameraPosition = this.getCameraPosition();
         
@@ -248,6 +199,11 @@ export class ChunkedScene {
             this.updateVisibleChunks(chunkX, chunkZ);
             this.lastCameraChunkX = chunkX;
             this.lastCameraChunkZ = chunkZ;
+        }
+        
+        // Update character
+        if (this.character) {
+            this.character.update(deltaTime);
         }
     }
     
@@ -466,7 +422,6 @@ export class ChunkedScene {
             mesh.position.set(worldX + this.chunkSize/2, 0, worldZ + this.chunkSize/2);
             mesh.castShadow = true;
             mesh.receiveShadow = true;
-            mesh.userData.isChunk = true;
             
             // Add to scene
             if (this.threeScene) {

@@ -51,9 +51,20 @@ export const config = {
         terrainScale: 0.005,
         dayNightCycle: true,    // Enable day/night cycle
         dayLength: 300,         // Day length in seconds
-        timeOfDay: 0.3,         // Starting time (0-1, where 0=midnight, 0.5=noon)
-        playerSpeed: 5,         // Player movement speed
-        playerTurnSpeed: 5      // Player rotation speed
+        timeOfDay: 0.3          // Starting time (0-1, where 0=midnight, 0.5=noon)
+    },
+    
+    // Character settings
+    character: {
+        moveSpeed: 5,
+        turnSpeed: 5,
+        model: "https://cdn.jsdelivr.net/gh/mrdoob/three.js@dev/examples/models/gltf/Xbot.glb",
+        scale: 1,
+        animations: {
+            idle: "idle",
+            walk: "walk",
+            run: "run"
+        }
     },
     
     // Optional features
