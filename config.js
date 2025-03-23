@@ -59,24 +59,37 @@ export const fallbacks = {
 // Library CDN paths
 export const libraries = {
     "three.js": [
-        "https://unpkg.com/three@0.160.0/build/three.module.js",
-        "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-        "https://cdnjs.cloudflare.com/ajax/libs/three.js/r160/three.module.js",
-        "https://esm.sh/three@0.160.0"
+        "https://cdnjs.cloudflare.com/ajax/libs/three.js/r160/three.min.js",
+        "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js",
+        "https://unpkg.com/three@0.160.0/build/three.min.js",
+        "https://esm.sh/three@0.160.0/build/three.min.js"
     ],
     "babylon.js": {
         core: "https://cdn.babylonjs.com/babylon.js",
         physics: "https://cdn.babylonjs.com/babylon.physics.min.js"
     },
-    "cannon-es": "https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.min.js",
-    "ammo.js": "https://cdn.jsdelivr.net/npm/ammo.js@0.0.10/ammo.js",
-    "physx": "https://cdn.jsdelivr.net/npm/@dimforge/physx@0.2.2/physx.js",
-    "rapier": "https://cdn.jsdelivr.net/npm/@dimforge/rapier3d@0.11.2/rapier.min.js",
+    "cannon-es": [
+        "https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.min.js",
+        "https://unpkg.com/cannon-es@0.20.0/dist/cannon-es.min.js",
+        "https://esm.sh/cannon-es@0.20.0/dist/cannon-es.min.js"
+    ],
+    "ammo.js": [
+        "https://cdnjs.cloudflare.com/ajax/libs/ammo.js/2.0.0/ammo.js",
+        "https://cdn.jsdelivr.net/npm/ammo.js@0.0.10/ammo.js"
+    ],
+    "physx": [
+        "https://cdn.jsdelivr.net/npm/@dimforge/physx@0.2.2/physx.js",
+        "https://unpkg.com/@dimforge/physx@0.2.2/physx.js"
+    ],
+    "rapier": [
+        "https://cdn.jsdelivr.net/npm/@dimforge/rapier3d@0.11.2/rapier.min.js",
+        "https://unpkg.com/@dimforge/rapier3d@0.11.2/rapier.min.js"
+    ],
     "three-mesh-bvh": [
-        "https://unpkg.com/three-mesh-bvh@0.6.6/build/three-mesh-bvh.module.js",
-        "https://cdn.jsdelivr.net/npm/three-mesh-bvh@0.6.6/build/three-mesh-bvh.module.js",
-        "https://cdn.skypack.dev/three-mesh-bvh@0.6.6",
-        "https://esm.sh/three-mesh-bvh@0.6.6"
+        "https://cdn.jsdelivr.net/npm/three-mesh-bvh@0.6.6/build/three-mesh-bvh.min.js",
+        "https://unpkg.com/three-mesh-bvh@0.6.6/build/three-mesh-bvh.min.js",
+        "https://esm.sh/three-mesh-bvh@0.6.6/build/three-mesh-bvh.min.js",
+        "https://cdn.skypack.dev/three-mesh-bvh@0.6.6"
     ],
     "tweakpane": "https://cdn.jsdelivr.net/npm/tweakpane@3.1.10/dist/tweakpane.min.js"
 };

@@ -7,19 +7,18 @@
     <script type="importmap">
     {
         "imports": {
-            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
-            "three-mesh-bvh": "https://unpkg.com/three-mesh-bvh@0.6.6/build/three-mesh-bvh.module.js",
+            "three": "https://cdnjs.cloudflare.com/ajax/libs/three.js/r160/three.module.js",
+            "three/addons/": "https://unpkg.com/three@r160/examples/jsm/",
             "cannon-es": "https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.js"
         }
     }
     </script>
-    <!-- Add global error handler -->
-    <script>
-        window.addEventListener('error', function(event) {
-            console.error('Global error caught:', event.message, event.filename, event.lineno);
-        });
-    </script>
+    <!-- Load physics libraries directly -->
+    <script src="https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ammo.js/2.0.0/ammo.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@dimforge/rapier3d@0.11.2/rapier.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@dimforge/physx@0.2.2/physx.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tweakpane@3.1.10/dist/tweakpane.min.js"></script>
 </head>
 <body>
     <div id="loading-screen">

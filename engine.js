@@ -898,6 +898,23 @@ class CannonPhysics {
     
     async initialize() {
         try {
+            // Check if CANNON is defined
+            if (typeof CANNON === 'undefined') {
+                // Try to load it if not available
+                await new Promise((resolve, reject) => {
+                    const script = document.createElement('script');
+                    script.src = "https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.min.js";
+                    script.onload = resolve;
+                    script.onerror = reject;
+                    document.head.appendChild(script);
+                });
+                
+                // If still undefined after loading, throw error
+                if (typeof CANNON === 'undefined') {
+                    throw new Error('Cannot load Cannon.js');
+                }
+            }
+            
             // Initialize Cannon world
             this.world = new CANNON.World();
             this.world.gravity.set(
@@ -1002,7 +1019,7 @@ class CannonPhysics {
     }
 }
 
-// Ammo.js physics implementation (stub)
+// Ammo.js physics implementation
 class AmmoPhysics {
     constructor(config) {
         this.config = config;
@@ -1012,7 +1029,18 @@ class AmmoPhysics {
     
     async initialize() {
         if (typeof Ammo === 'undefined') {
-            throw new Error('Ammo.js not loaded');
+            // Try to load Ammo.js
+            try {
+                await new Promise((resolve, reject) => {
+                    const script = document.createElement('script');
+                    script.src = "https://cdnjs.cloudflare.com/ajax/libs/ammo.js/2.0.0/ammo.js";
+                    script.onload = resolve;
+                    script.onerror = reject;
+                    document.head.appendChild(script);
+                });
+            } catch (error) {
+                throw new Error('Ammo.js not loaded');
+            }
         }
         
         try {
@@ -1065,7 +1093,7 @@ class AmmoPhysics {
     }
 }
 
-// RapierPhysics implementation (stub)
+// RapierPhysics implementation
 class RapierPhysics {
     constructor(config) {
         this.config = config;
@@ -1075,7 +1103,18 @@ class RapierPhysics {
     
     async initialize() {
         if (typeof RAPIER === 'undefined') {
-            throw new Error('Rapier not loaded');
+            // Try to load Rapier
+            try {
+                await new Promise((resolve, reject) => {
+                    const script = document.createElement('script');
+                    script.src = "https://cdn.jsdelivr.net/npm/@dimforge/rapier3d@0.11.2/rapier.min.js";
+                    script.onload = resolve;
+                    script.onerror = reject;
+                    document.head.appendChild(script);
+                });
+            } catch (error) {
+                throw new Error('Rapier not loaded');
+            }
         }
         
         try {
@@ -1107,7 +1146,7 @@ class RapierPhysics {
     }
 }
 
-// PhysXPhysics implementation (stub)
+// PhysXPhysics implementation
 class PhysXPhysics {
     constructor(config) {
         this.config = config;
@@ -1116,7 +1155,18 @@ class PhysXPhysics {
     
     async initialize() {
         if (typeof PhysX === 'undefined') {
-            throw new Error('PhysX not loaded');
+            // Try to load PhysX
+            try {
+                await new Promise((resolve, reject) => {
+                    const script = document.createElement('script');
+                    script.src = "https://cdn.jsdelivr.net/npm/@dimforge/physx@0.2.2/physx.js";
+                    script.onload = resolve;
+                    script.onerror = reject;
+                    document.head.appendChild(script);
+                });
+            } catch (error) {
+                throw new Error('PhysX not loaded');
+            }
         }
         
         try {
@@ -1139,4 +1189,3 @@ class PhysXPhysics {
         this.world = null;
     }
 }
-
