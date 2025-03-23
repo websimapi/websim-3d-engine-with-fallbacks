@@ -68,12 +68,7 @@ export const libraries = {
         core: "https://cdn.babylonjs.com/babylon.js",
         physics: "https://cdn.babylonjs.com/babylon.physics.min.js"
     },
-    "cannon-es": [
-        "https://unpkg.com/cannon-es@0.20.0/dist/cannon-es.js",
-        "https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.js", 
-        "https://cdn.skypack.dev/cannon-es@0.20.0",
-        "https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"
-    ],
+    "cannon-es": "https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.min.js",
     "ammo.js": "https://cdn.jsdelivr.net/npm/ammo.js@0.0.10/ammo.js",
     "physx": "https://cdn.jsdelivr.net/npm/@dimforge/physx@0.2.2/physx.js",
     "rapier": "https://cdn.jsdelivr.net/npm/@dimforge/rapier3d@0.11.2/rapier.min.js",
