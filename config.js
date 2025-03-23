@@ -51,7 +51,7 @@ export const config = {
     
     // Optional features
     features: {
-        meshBVH: false  // Set to false by default since CDN links are having issues
+        meshBVH: false  // Disabled to avoid CDN loading issues
     }
 };
 
@@ -64,10 +64,10 @@ export const fallbacks = {
 // Library CDN paths
 export const libraries = {
     "three.js": [
-        "https://cdnjs.cloudflare.com/ajax/libs/three.js/r160/three.min.js",
         "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js",
-        "https://unpkg.com/three@0.160.0/build/three.min.js",
-        "https://esm.sh/three@0.160.0/build/three.min.js"
+        "https://unpkg.com/three@0.160.0/build/three.min.js", 
+        "https://esm.sh/three@0.160.0/build/three.min.js",
+        "https://cdnjs.cloudflare.com/ajax/libs/three.js/r160/three.min.js"
     ],
     "babylon.js": {
         core: "https://cdn.babylonjs.com/babylon.js",
