@@ -196,7 +196,7 @@ export class ChunkedScene {
                 
                 mesh.position.set(
                     x,
-                    Math.max(terrainHeight, 0) + 3 + Math.random() * 2, // Place a bit above terrain
+                    Math.max(terrainHeight, 0) + 1, // Place just 1 unit above terrain
                     z
                 );
                 
@@ -799,17 +799,32 @@ export class ChunkedScene {
         // Calculate which chunks should be visible
         const newActiveChunks = new Set();
         
+        // Use higher detail for closer chunks, lower detail for distant chunks
+        const highDetailDistance = Math.min(2, this.loadDistance);
+        const mediumDetailDistance = Math.min(3, this.loadDistance);
+        
         for (let x = -this.loadDistance; x <= this.loadDistance; x++) {
             for (let z = -this.loadDistance; z <= this.loadDistance; z++) {
+                // Skip chunks that are too far (use circular distance)
+                const distance = Math.sqrt(x*x + z*z);
+                if (distance > this.loadDistance + 0.5) continue;
+                
                 const chunkX = centerChunkX + x;
                 const chunkZ = centerChunkZ + z;
                 const chunkId = `${chunkX},${chunkZ}`;
                 
                 newActiveChunks.add(chunkId);
                 
-                // If chunk isn't loaded, load it
+                // If chunk isn't loaded, load it with LOD based on distance
                 if (!this.chunks.has(chunkId)) {
-                    this.loadChunk(chunkX, chunkZ);
+                    let detailLevel = 'low';
+                    if (distance <= highDetailDistance) {
+                        detailLevel = 'high';
+                    } else if (distance <= mediumDetailDistance) {
+                        detailLevel = 'medium';
+                    }
+                    
+                    this.loadChunk(chunkX, chunkZ, detailLevel);
                 }
             }
         }
@@ -822,49 +837,6 @@ export class ChunkedScene {
         }
         
         this.activeChunks = newActiveChunks;
-    }
-    
-    // Load a chunk at given coordinates
-    loadChunk(chunkX, chunkZ) {
-        const chunkId = `${chunkX},${chunkZ}`;
-        
-        // Calculate world position
-        const worldX = chunkX * this.chunkSize;
-        const worldZ = chunkZ * this.chunkSize;
-        
-        let chunk;
-        
-        // Create appropriate chunk based on rendering engine
-        if (this.engine.currentRenderingEngine === 'three.js') {
-            chunk = this.createThreeChunk(chunkX, chunkZ, worldX, worldZ);
-        } else if (this.engine.currentRenderingEngine === 'babylon.js') {
-            chunk = this.createBabylonChunk(chunkX, chunkZ, worldX, worldZ);
-        } else {
-            console.error('Unknown rendering engine');
-            return;
-        }
-        
-        if (chunk) {
-            // Create pickup objects in this chunk
-            if (this.engine.currentRenderingEngine === 'three.js') {
-                this.createPickupObjectsInChunk(chunk, worldX, worldZ);
-            }
-            
-            this.chunks.set(chunkId, chunk);
-            this.totalChunks++;
-            
-            // Notify multiplayer manager of new chunk
-            if (this.multiplayerManager && this.multiplayerManager.initialized) {
-                const objects = this.multiplayerManager.getChunkObjects(chunkId);
-                if (!objects) {
-                    // Share our generated objects with other players
-                    const chunkObjects = chunk.objects || [];
-                    if (chunkObjects.length > 0) {
-                        this.multiplayerManager.saveChunkObjects(chunkId, chunkObjects);
-                    }
-                }
-            }
-        }
     }
 
     // Create pickup objects within a specific chunk
@@ -910,7 +882,7 @@ export class ChunkedScene {
         const chunkId = `${chunk.chunkX},${chunk.chunkZ}`;
         let storedObjects = null;
         
-        if (this.multiplayerManager && this.multiplayerManager.initialized) {
+        if (this.multiplayerManager) {
             storedObjects = this.multiplayerManager.getChunkObjects(chunkId);
         }
         
@@ -920,9 +892,13 @@ export class ChunkedScene {
             return;
         }
         
-        // Store generated objects for this chunk
-        chunk.objects = [];
-
+        // Skip spawning objects in the origin chunk if already populated
+        if (worldX === 0 && worldZ === 0 && this.pickupObjects.length > 0) {
+            return;
+        }
+        
+        const chunkObjects = [];
+        
         objectShapes.forEach(objectType => {
             for (let i = 0; i < objectType.count; i++) {
                 const material = new THREE.MeshStandardMaterial({
@@ -943,11 +919,11 @@ export class ChunkedScene {
                 // Determine if this should be a floating object (only for light objects)
                 const isFloating = config.world.floatingObjects && 
                                    objectType.mass < 1 && 
-                                   random() < 0.3; // 30% chance for eligible objects
+                                   random() < 0.2; // Reduced to 20% chance for eligible objects
                 
                 const y = isFloating ? 
-                    Math.max(terrainHeight, 0) + 10 + random() * 15 : // Float 10-25 units above terrain
-                    Math.max(terrainHeight, 0) + 3 + random() * 2;    // Regular placement
+                    Math.max(terrainHeight, 0) + 5 + random() * 8 : // Float 5-13 units above terrain (reduced height)
+                    Math.max(terrainHeight, 0) + 1 + random() * 0.5;    // Regular placement just 1-1.5 units above terrain
                 
                 mesh.position.set(
                     worldX + offsetX,
@@ -1000,9 +976,9 @@ export class ChunkedScene {
                         
                         // Apply small random force to make it move slightly
                         const floatForce = new CANNON.Vec3(
-                            (random() - 0.5) * 0.5,
-                            2 + random() * 1,  // Upward force
-                            (random() - 0.5) * 0.5
+                            (random() - 0.5) * 0.3,
+                            1 + random() * 0.5,  // Reduced upward force
+                            (random() - 0.5) * 0.3
                         );
                         body.applyLocalForce(floatForce, new CANNON.Vec3(0, 0, 0));
                     }
@@ -1019,8 +995,8 @@ export class ChunkedScene {
                     // Add to our pickup objects array
                     this.pickupObjects.push({ mesh, body, id: objectId });
                     
-                    // Store for chunk reference and multiplayer
-                    chunk.objects.push({
+                    // Store for multiplayer
+                    chunkObjects.push({
                         id: objectId,
                         type: objectType.geometry.type,
                         position: { x: mesh.position.x, y: mesh.position.y, z: mesh.position.z },
@@ -1034,8 +1010,8 @@ export class ChunkedScene {
         });
         
         // Store the objects for this chunk in multiplayer manager
-        if (this.multiplayerManager && this.multiplayerManager.initialized && chunk.objects.length > 0) {
-            this.multiplayerManager.saveChunkObjects(chunkId, chunk.objects);
+        if (this.multiplayerManager && chunkObjects.length > 0) {
+            this.multiplayerManager.saveChunkObjects(chunkId, chunkObjects);
         }
     }
     
@@ -1235,10 +1211,24 @@ export class ChunkedScene {
     }
 
     // Create a Three.js chunk
-    createThreeChunk(chunkX, chunkZ, worldX, worldZ) {
+    createThreeChunk(chunkX, chunkZ, worldX, worldZ, detailLevel = 'medium') {
         try {
-            // Simple terrain heightmap
-            const resolution = Math.max(16, this.chunkSize / 4); // Points per side
+            // Simple terrain heightmap with LOD
+            let resolution;
+            switch (detailLevel) {
+                case 'high':
+                    resolution = Math.max(32, this.chunkSize / 2);
+                    break;
+                case 'medium':
+                    resolution = Math.max(16, this.chunkSize / 4);
+                    break;
+                case 'low':
+                    resolution = Math.max(8, this.chunkSize / 8);
+                    break;
+                default:
+                    resolution = Math.max(16, this.chunkSize / 4);
+            }
+            
             const geometry = new THREE.PlaneGeometry(
                 this.chunkSize, 
                 this.chunkSize, 
@@ -1278,113 +1268,52 @@ export class ChunkedScene {
             mesh.castShadow = true;
             mesh.receiveShadow = true;
             
+            // Set frustum culling
+            mesh.frustumCulled = true;
+            
+            // Store detail level
+            mesh.userData = { detailLevel };
+            
             // Add to scene
             if (this.threeScene) {
                 this.threeScene.add(mesh);
             }
             
-            return { mesh, chunkX, chunkZ };
+            return { mesh, chunkX, chunkZ, detailLevel };
         } catch (error) {
             console.error('Error creating Three.js chunk:', error);
             return null;
         }
     }
     
-    // Apply vertex colors to Three.js geometry based on height
-    applyColorToThreeGeometry(geometry) {
-        const vertices = geometry.attributes.position.array;
-        const colors = new Float32Array(vertices.length);
+    // Load a chunk at given coordinates
+    loadChunk(chunkX, chunkZ, detailLevel = 'medium') {
+        const chunkId = `${chunkX},${chunkZ}`;
         
-        for (let i = 0; i < vertices.length; i += 3) {
-            const height = vertices[i+1];
-            
-            // Generate color based on height
-            let color;
-            if (height < 0) {
-                // Water - blue
-                color = new THREE.Color(0x0077be);
-            } else if (height < 3) {
-                // Sand - tan
-                color = new THREE.Color(0xc2b280);
-            } else if (height < 12) {
-                // Grass - green
-                color = new THREE.Color(0x567d46);
-            } else if (height < 35) {
-                // Forest - dark green
-                color = new THREE.Color(0x2d4c1e);
-            } else if (height < 60) {
-                // Mountain - gray brown
-                color = new THREE.Color(0x7d6b5d);
-            } else {
-                // Snow peaks - white
-                color = new THREE.Color(0xeeeeee);
-            }
-            
-            // Set RGB values
-            colors[i] = color.r;
-            colors[i+1] = color.g;
-            colors[i+2] = color.b;
+        // Calculate world position
+        const worldX = chunkX * this.chunkSize;
+        const worldZ = chunkZ * this.chunkSize;
+        
+        let chunk;
+        
+        // Create appropriate chunk based on rendering engine
+        if (this.engine.currentRenderingEngine === 'three.js') {
+            chunk = this.createThreeChunk(chunkX, chunkZ, worldX, worldZ, detailLevel);
+        } else if (this.engine.currentRenderingEngine === 'babylon.js') {
+            chunk = this.createBabylonChunk(chunkX, chunkZ, worldX, worldZ, detailLevel);
+        } else {
+            console.error('Unknown rendering engine');
+            return;
         }
         
-        // Add colors to geometry
-        geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-    }
-    
-    // Create a Babylon.js chunk
-    createBabylonChunk(chunkX, chunkZ, worldX, worldZ) {
-        if (!this.babylonScene) return null;
-        
-        try {
-            // Simple terrain heightmap
-            const resolution = Math.max(16, this.chunkSize / 4); // Points per side
-            
-            // Create heightmap data
-            const heightData = new Float32Array(resolution * resolution);
-            
-            // Generate heights
-            for (let z = 0; z < resolution; z++) {
-                for (let x = 0; x < resolution; x++) {
-                    const worldPosX = worldX + (x / (resolution - 1)) * this.chunkSize;
-                    const worldPosZ = worldZ + (z / (resolution - 1)) * this.chunkSize;
-                    
-                    // Get height from noise
-                    heightData[z * resolution + x] = this.getTerrainHeight(worldPosX, worldPosZ);
-                }
+        if (chunk) {
+            // Create pickup objects in this chunk
+            if (this.engine.currentRenderingEngine === 'three.js') {
+                this.createPickupObjectsInChunk(chunk, worldX, worldZ);
             }
             
-            // Create the ground mesh
-            const ground = BABYLON.MeshBuilder.CreateGroundFromHeightMap(
-                `chunk_${chunkX}_${chunkZ}`,
-                'heightMap', // Babylon will generate from the heightData
-                {
-                    width: this.chunkSize,
-                    height: this.chunkSize,
-                    subdivisions: resolution - 1,
-                    minHeight: -20,
-                    maxHeight: this.terrainHeight,
-                    updatable: false,
-                    heightmapData: heightData
-                },
-                this.babylonScene
-            );
-            
-            // Position the chunk
-            ground.position.x = worldX + this.chunkSize/2;
-            ground.position.z = worldZ + this.chunkSize/2;
-            
-            // Apply material
-            const material = new BABYLON.StandardMaterial(`chunkMaterial_${chunkX}_${chunkZ}`, this.babylonScene);
-            material.diffuseColor = new BABYLON.Color3(0.4, 0.6, 0.3); // Green for grass
-            material.specularColor = new BABYLON.Color3(0.1, 0.1, 0.1);
-            ground.material = material;
-            
-            // Set shadows
-            ground.receiveShadows = true;
-            
-            return { mesh: ground, chunkX, chunkZ };
-        } catch (error) {
-            console.error('Error creating Babylon.js chunk:', error);
-            return null;
+            this.chunks.set(chunkId, chunk);
+            this.totalChunks++;
         }
     }
     
@@ -1416,16 +1345,6 @@ export class ChunkedScene {
         }
         
         return 0;
-    }
-    
-    // Get the Three.js scene object
-    getThreeScene() {
-        return this.threeScene;
-    }
-    
-    // Get the Babylon.js scene object
-    getBabylonScene() {
-        return this.babylonScene;
     }
     
     // Clean up resources

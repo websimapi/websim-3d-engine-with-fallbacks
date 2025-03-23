@@ -72,13 +72,6 @@ export class MultiplayerManager {
                 }
             }
         });
-        
-        // Subscribe to room state for chunk synchronization
-        this.room.party.subscribeRoomState((roomState) => {
-            if (roomState && roomState.chunkObjects) {
-                this.syncChunkObjects(roomState.chunkObjects);
-            }
-        });
     }
     
     initializeRoomState() {
@@ -87,9 +80,7 @@ export class MultiplayerManager {
             this.room.party.updateRoomState({
                 chunkObjects: {}  // Map of chunk IDs to objects in that chunk
             });
-        } 
-        // Even if we're not the first player, update our presence immediately
-        this.updatePlayerPosition();
+        }
     }
     
     async loadChunkData() {
@@ -254,8 +245,7 @@ export class MultiplayerManager {
                 y: this.scene.playerSphere.position.y,
                 z: this.scene.playerSphere.position.z
             },
-            size: this.scene.getPlayerRadius(),
-            mass: this.scene.playerBody ? this.scene.playerBody.mass : 1
+            size: this.scene.getPlayerRadius()
         });
     }
     
@@ -337,25 +327,6 @@ export class MultiplayerManager {
             return roomState.chunkObjects[chunkId];
         }
         return null;
-    }
-    
-    syncChunkObjects(chunkObjects) {
-        // Apply chunk data from room state to our scene
-        for (const chunkId in chunkObjects) {
-            const objects = chunkObjects[chunkId];
-            
-            // Check if this chunk is already loaded in our scene
-            if (this.scene.chunks.has(chunkId)) {
-                // Only update if the objects have changed
-                const storedObjects = this.getChunkObjects(chunkId);
-                if (JSON.stringify(objects) !== JSON.stringify(storedObjects)) {
-                    // Remove existing objects and create new ones
-                    const [chunkX, chunkZ] = chunkId.split(',').map(Number);
-                    this.scene.removePickupObjectsInChunk({chunkX, chunkZ});
-                    this.scene.createStoredObjects(objects, chunkId);
-                }
-            }
-        }
     }
     
     update(deltaTime) {
