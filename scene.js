@@ -196,7 +196,7 @@ export class ChunkedScene {
                 
                 mesh.position.set(
                     x,
-                    Math.max(terrainHeight, 0) + 1 + Math.random() * 1, // Lowered to be closer to ground
+                    Math.max(terrainHeight, 0) + 3 + Math.random() * 2, // Place a bit above terrain
                     z
                 );
                 
@@ -928,24 +928,28 @@ export class ChunkedScene {
                 // Position within this chunk
                 const offsetX = random() * this.chunkSize;
                 const offsetZ = random() * this.chunkSize;
+                const x = worldX + offsetX;
+                const z = worldZ + offsetZ;
                 
                 // Get terrain height at this position for proper placement
-                const terrainHeight = this.getTerrainHeight(worldX + offsetX, worldZ + offsetZ);
+                const terrainHeight = this.getTerrainHeight(x, z);
                 
-                // Determine if this should be a floating object (reduced chance to 10%)
+                // Determine if this should be a floating object (only for light objects)
                 const isFloating = config.world.floatingObjects && 
                                    objectType.mass < 1 && 
-                                   random() < 0.1; // Reduced to 10% chance for eligible objects
+                                   random() < 0.3; // 30% chance for eligible objects
                 
-                const y = isFloating ? 
-                    Math.max(terrainHeight, 0) + 10 + random() * 15 : // Float 10-25 units above terrain
-                    Math.max(terrainHeight, 0) + 0.5 + random() * 2;  // Lowered to be closer to ground level
+                // Ensure objects are properly placed above terrain
+                let y;
+                if (isFloating) {
+                    // Float 10-15 units above terrain
+                    y = Math.max(terrainHeight, 0) + 10 + random() * 5;
+                } else {
+                    // Place directly on terrain with small offset to prevent clipping
+                    y = Math.max(terrainHeight, 0) + 1 + (objectType.mass * 0.5);
+                }
                 
-                mesh.position.set(
-                    worldX + offsetX,
-                    y,
-                    worldZ + offsetZ
-                );
+                mesh.position.set(x, y, z);
                 
                 mesh.castShadow = true;
                 mesh.receiveShadow = true;
@@ -1030,7 +1034,7 @@ export class ChunkedScene {
             this.multiplayerManager.saveChunkObjects(chunkId, chunkObjects);
         }
     }
-
+    
     // Create objects from stored data
     createStoredObjects(objects, chunkId) {
         if (!this.threeScene || !objects || objects.length === 0) return;
