@@ -420,7 +420,7 @@ export class ChunkedScene {
         this.threeScene.add(this.sunLight);
         
         // Add ambient moonlight for night
-        this.moonLight = new THREE.AmbientLight(0x223344, 0.2);
+        this.moonLight = new THREE.AmbientLight(0x223366, 0.2);
         this.threeScene.add(this.moonLight);
         
         // Initialize time of day
@@ -430,34 +430,6 @@ export class ChunkedScene {
         
         // Update lighting based on current time
         this.updateDayNightCycle(0);
-    }
-    
-    // Main update method called each frame
-    update(deltaTime) {
-        // Update day/night cycle
-        if (config.world.dayNightCycle && this.threeScene) {
-            this.updateDayNightCycle(deltaTime);
-        }
-        
-        // Update player controls if available
-        this.updatePlayerControls(deltaTime);
-        
-        // Check for pickups and object collisions
-        this.checkPickups();
-        
-        // Get current camera position
-        const cameraPosition = this.getCameraPosition();
-        
-        // Calculate which chunk the camera is in
-        const chunkX = Math.floor(cameraPosition.x / this.chunkSize);
-        const chunkZ = Math.floor(cameraPosition.z / this.chunkSize);
-        
-        // Only update chunks if we've moved to a new chunk
-        if (chunkX !== this.lastCameraChunkX || chunkZ !== this.lastCameraChunkZ) {
-            this.updateVisibleChunks(chunkX, chunkZ);
-            this.lastCameraChunkX = chunkX;
-            this.lastCameraChunkZ = chunkZ;
-        }
     }
     
     // Update day/night cycle lighting
@@ -501,25 +473,69 @@ export class ChunkedScene {
                 // Sunrise/sunset - orange tint
                 const blendFactor = 1 - (sunHeight / 0.2);
                 this.hemisphereLight.color.setHSL(0.1, 0.7, 0.5 + (0.5 * sunHeight)); // Orange sky
+                
+                // Add more reddish glow at sunset/sunrise
+                this.sunLight.color.setHSL(0.05, 0.9, 0.5 + (0.5 * sunHeight));
             } else {
                 this.hemisphereLight.color.setHSL(0.6, 0.8, 0.8); // Blue sky
+                this.sunLight.color.setHSL(0.1, 0.7, 1.0); // Restore normal sun color
             }
         } else {
             // Night time
+            const nightProgress = Math.abs(sunHeight) / 1.0; // How deep into night (0-1)
+            
             sunIntensity = 0;
             ambientIntensity = 0;
-            this.moonLight.intensity = 0.2;
             
-            // Dark blue night sky
-            this.threeScene.background = new THREE.Color().setHSL(0.7, 0.8, Math.max(0.1, 0.1 + sunHeight));
-            this.threeScene.fog.color.setHSL(0.7, 0.8, Math.max(0.1, 0.1 + sunHeight));
+            // Enhanced moonlight with blue tint that varies through the night
+            this.moonLight.intensity = 0.3;
+            this.moonLight.color.setHSL(0.7, 0.9, 0.5); // Bluish moonlight
             
-            // Night hemisphere
-            this.hemisphereLight.color.setHSL(0.7, 0.8, 0.1);
+            // Darker blue night sky with stars effect (lighter at midnight)
+            const nightHue = 0.7;  // Deep blue
+            const nightSat = 0.8;
+            
+            // Slightly brighter at midnight, darker at dusk/dawn
+            const nightLightness = Math.max(0.05, 0.12 - (0.07 * Math.cos(Math.PI * nightProgress)));
+            
+            this.threeScene.background = new THREE.Color().setHSL(nightHue, nightSat, nightLightness);
+            this.threeScene.fog.color.setHSL(nightHue, nightSat, nightLightness);
+            
+            // Deep blue hemisphere for night
+            this.hemisphereLight.color.setHSL(0.7, 0.9, 0.1 + (0.05 * Math.sin(Math.PI * nightProgress)));
+            this.hemisphereLight.groundColor.setHSL(0.7, 0.5, 0.05); // Darker ground reflection at night
         }
         
         this.sunLight.intensity = sunIntensity;
         this.hemisphereLight.intensity = 0.6 + (ambientIntensity * 0.4);
+    }
+    
+    // Main update method called each frame
+    update(deltaTime) {
+        // Update day/night cycle
+        if (config.world.dayNightCycle && this.threeScene) {
+            this.updateDayNightCycle(deltaTime);
+        }
+        
+        // Update player controls if available
+        this.updatePlayerControls(deltaTime);
+        
+        // Check for pickups and object collisions
+        this.checkPickups();
+        
+        // Get current camera position
+        const cameraPosition = this.getCameraPosition();
+        
+        // Calculate which chunk the camera is in
+        const chunkX = Math.floor(cameraPosition.x / this.chunkSize);
+        const chunkZ = Math.floor(cameraPosition.z / this.chunkSize);
+        
+        // Only update chunks if we've moved to a new chunk
+        if (chunkX !== this.lastCameraChunkX || chunkZ !== this.lastCameraChunkZ) {
+            this.updateVisibleChunks(chunkX, chunkZ);
+            this.lastCameraChunkX = chunkX;
+            this.lastCameraChunkZ = chunkZ;
+        }
     }
     
     // Get current camera position
