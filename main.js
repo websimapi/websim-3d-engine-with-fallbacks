@@ -60,12 +60,22 @@ class Application {
                     expanded: false
                 });
                 
-                renderFolder.addInput(config.rendering, 'shadows');
+                renderFolder.addInput(config.rendering, 'shadows').on('change', () => {
+                    if (this.engine && this.engine.activeEngines.renderer) {
+                        this.engine.activeEngines.renderer.updateSettings({ shadows: config.rendering.shadows });
+                    }
+                });
+                
                 renderFolder.addInput(config.rendering, 'antialias');
+                
                 renderFolder.addInput(config.rendering, 'pixelRatio', {
                     min: 0.5,
                     max: 2,
                     step: 0.1
+                }).on('change', () => {
+                    if (this.engine && this.engine.activeEngines.renderer) {
+                        this.engine.activeEngines.renderer.updateSettings({ pixelRatio: config.rendering.pixelRatio });
+                    }
                 });
                 
                 // Performance settings
@@ -78,6 +88,10 @@ class Application {
                     min: 30,
                     max: 144,
                     step: 1
+                }).on('change', () => {
+                    if (this.engine && this.engine.performanceMonitor) {
+                        this.engine.performanceMonitor.targetFPS = config.performance.targetFPS;
+                    }
                 });
                 
                 perfFolder.addInput(config.performance, 'chunkLoadDistance', {
@@ -90,8 +104,17 @@ class Application {
                     }
                 });
                 
-                perfFolder.addInput(config.performance, 'adaptiveQuality');
-                perfFolder.addInput(config.performance, 'showStats');
+                perfFolder.addInput(config.performance, 'adaptiveQuality').on('change', () => {
+                    // No need for immediate action - this controls a behavior
+                });
+                
+                perfFolder.addInput(config.performance, 'showStats').on('change', () => {
+                    if (this.engine && this.engine.performanceMonitor) {
+                        this.engine.performanceMonitor.enabled = config.performance.showStats;
+                        document.getElementById('performance-stats').style.display = 
+                            config.performance.showStats ? 'block' : 'none';
+                    }
+                });
                 
                 // World settings
                 const worldFolder = pane.addFolder({
@@ -104,18 +127,38 @@ class Application {
                         Flat: 'flat',
                         Perlin: 'perlin'
                     }
+                }).on('change', () => {
+                    if (this.engine && this.engine.scene) {
+                        // Force reload chunks with new terrain type
+                        this.engine.scene.lastCameraChunkX = null;
+                        this.engine.scene.lastCameraChunkZ = null;
+                    }
                 });
                 
                 worldFolder.addInput(config.world, 'terrainHeight', {
                     min: 10,
                     max: 200,
                     step: 1
+                }).on('change', () => {
+                    if (this.engine && this.engine.scene) {
+                        this.engine.scene.terrainHeight = config.world.terrainHeight;
+                        // Force reload chunks
+                        this.engine.scene.lastCameraChunkX = null;
+                        this.engine.scene.lastCameraChunkZ = null;
+                    }
                 });
                 
                 worldFolder.addInput(config.world, 'terrainScale', {
                     min: 0.001,
                     max: 0.01,
                     step: 0.001
+                }).on('change', () => {
+                    if (this.engine && this.engine.scene) {
+                        this.engine.scene.terrainScale = config.world.terrainScale;
+                        // Force reload chunks
+                        this.engine.scene.lastCameraChunkX = null;
+                        this.engine.scene.lastCameraChunkZ = null;
+                    }
                 });
                 
                 worldFolder.addButton({
@@ -182,4 +225,3 @@ document.addEventListener('DOMContentLoaded', async () => {
     const app = new Application();
     await app.initialize();
 });
-

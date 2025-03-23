@@ -15,7 +15,12 @@ export class PerformanceMonitor {
         this.memoryUsage = 0;
         this.memoryLimit = window.performance?.memory?.jsHeapSizeLimit || 0;
         this.statsElement = document.getElementById('performance-stats');
-        this.enabled = true;
+        this.enabled = config.performance.showStats;
+        
+        // Initialize stats element visibility
+        if (this.statsElement) {
+            this.statsElement.style.display = this.enabled ? 'block' : 'none';
+        }
     }
 
     startFrame() {
@@ -271,4 +276,3 @@ export const DeviceCapabilities = {
         };
     }
 };
-

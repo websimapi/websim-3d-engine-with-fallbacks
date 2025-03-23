@@ -662,6 +662,11 @@ class ThreeRenderer {
                     }
                 });
             }
+            
+            // Force shadow map update
+            if (this.renderer.shadowMap.enabled) {
+                this.renderer.shadowMap.needsUpdate = true;
+            }
         }
         
         if (settings.pixelRatio !== undefined && this.renderer) {
@@ -669,6 +674,9 @@ class ThreeRenderer {
                 settings.pixelRatio,
                 this.config.rendering.maxPixelRatio
             ));
+            
+            // Force resize to apply pixel ratio change
+            this.resize(window.innerWidth, window.innerHeight);
         }
     }
     
@@ -833,6 +841,13 @@ class BabylonRenderer {
                 this.shadowGenerator = new BABYLON.ShadowGenerator(2048, this.scene.lights[1]);
                 this.shadowGenerator.useBlurExponentialShadowMap = true;
                 this.shadowGenerator.blurKernel = 32;
+                
+                // Add meshes to shadow caster list
+                this.scene.meshes.forEach(mesh => {
+                    if (mesh.receiveShadows) {
+                        this.shadowGenerator.addShadowCaster(mesh);
+                    }
+                });
             } else if (!settings.shadows && this.shadowGenerator) {
                 // Disable shadows
                 this.shadowGenerator.dispose();
