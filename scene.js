@@ -109,9 +109,6 @@ export class ChunkedScene {
         this.moonLight = new THREE.AmbientLight(0x223344, 0.2);
         this.threeScene.add(this.moonLight);
         
-        // Add test objects to show shadows
-        this.addTestObjects();
-        
         // Initialize time of day
         this.timeOfDay = config.world.timeOfDay;
         this.dayLength = config.world.dayLength;
@@ -119,50 +116,69 @@ export class ChunkedScene {
         
         // Update lighting based on current time
         this.updateDayNightCycle(0);
+        
+        // Add character controller instead of test objects
+        this.addCharacterController();
+    }
+    
+    // Add character controller for player movement
+    addCharacterController() {
+        // Create a player controller
+        this.player = new CharacterController(this.threeScene);
+        
+        // Set up click-to-move system
+        this.setupClickToMove();
+    }
+    
+    // Set up click-to-move navigation
+    setupClickToMove() {
+        if (!this.threeScene) return;
+        
+        // Create a raycaster for mouse picking
+        this.raycaster = new THREE.Raycaster();
+        this.mouse = new THREE.Vector2();
+        
+        // Add event listener for mouse click
+        document.addEventListener('click', (event) => {
+            // Calculate mouse position in normalized device coordinates
+            this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            
+            // Update the picking ray with the camera and mouse position
+            this.raycaster.setFromCamera(this.mouse, this.engine.activeEngines.renderer.getCamera());
+            
+            // Calculate objects intersecting the picking ray
+            const groundObjects = [];
+            this.threeScene.traverse((object) => {
+                if (object.isMesh && (object.name === 'ground' || object.userData.isChunk)) {
+                    groundObjects.push(object);
+                }
+            });
+            
+            const intersects = this.raycaster.intersectObjects(groundObjects, false);
+            
+            if (intersects.length > 0) {
+                // Get the point where the ray hit the mesh
+                const targetPosition = intersects[0].point;
+                
+                // Tell the player to move to that position
+                if (this.player) {
+                    this.player.moveTo(targetPosition);
+                }
+            }
+        });
+        
+        // Create a navigation marker to show where the player is moving to
+        const markerGeometry = new THREE.CylinderGeometry(0.5, 0, 2, 12);
+        const markerMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+        this.navMarker = new THREE.Mesh(markerGeometry, markerMaterial);
+        this.navMarker.visible = false;
+        this.threeScene.add(this.navMarker);
     }
     
     // Add test objects to demonstrate shadows
     addTestObjects() {
-        // Add some cubes and spheres to cast shadows
-        const geometry = new THREE.BoxGeometry(10, 10, 10);
-        const material = new THREE.MeshStandardMaterial({
-            color: 0x8844aa,
-            roughness: 0.7,
-            metalness: 0.2
-        });
-        
-        // Create a few test cubes
-        for (let i = 0; i < 5; i++) {
-            const cube = new THREE.Mesh(geometry, material);
-            cube.position.set(
-                (i * 20) - 40,
-                15,
-                -20
-            );
-            cube.castShadow = true;
-            cube.receiveShadow = true;
-            this.threeScene.add(cube);
-        }
-        
-        // Add a few spheres
-        const sphereGeometry = new THREE.SphereGeometry(7, 32, 32);
-        const sphereMaterial = new THREE.MeshStandardMaterial({
-            color: 0x44aa88,
-            roughness: 0.5,
-            metalness: 0.3
-        });
-        
-        for (let i = 0; i < 3; i++) {
-            const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-            sphere.position.set(
-                (i * 25) - 25,
-                10,
-                20
-            );
-            sphere.castShadow = true;
-            sphere.receiveShadow = true;
-            this.threeScene.add(sphere);
-        }
+        // Method kept empty intentionally - test objects removed
     }
     
     // Initialize for Babylon.js renderer
@@ -201,9 +217,6 @@ export class ChunkedScene {
     updateChunkSettings() {
         this.loadDistance = config.performance.chunkLoadDistance;
         this.chunkSize = config.performance.chunkSize;
-        this.terrainHeight = config.world.terrainHeight;
-        this.terrainScale = config.world.terrainScale;
-        this.seed = config.world.seed;
         
         // Force update of chunks
         this.lastCameraChunkX = null;
@@ -215,6 +228,11 @@ export class ChunkedScene {
         // Update day/night cycle
         if (config.world.dayNightCycle && this.threeScene) {
             this.updateDayNightCycle(deltaTime);
+        }
+        
+        // Update player
+        if (this.player) {
+            this.player.update(deltaTime);
         }
         
         // Get current camera position
@@ -447,6 +465,7 @@ export class ChunkedScene {
             mesh.position.set(worldX + this.chunkSize/2, 0, worldZ + this.chunkSize/2);
             mesh.castShadow = true;
             mesh.receiveShadow = true;
+            mesh.userData.isChunk = true;
             
             // Add to scene
             if (this.threeScene) {

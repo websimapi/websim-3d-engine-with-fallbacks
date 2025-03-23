@@ -44,14 +44,16 @@ export const config = {
 
     // World generation
     world: {
-        seed: Math.floor(Math.random() * 10000),
+        seed: Math.random() * 10000 | 0,
         infiniteWorld: true,
         terrainType: "perlin", // Options: "perlin", "flat", "procedural"
         terrainHeight: 70,
         terrainScale: 0.005,
         dayNightCycle: true,    // Enable day/night cycle
         dayLength: 300,         // Day length in seconds
-        timeOfDay: 0.3          // Starting time (0-1, where 0=midnight, 0.5=noon)
+        timeOfDay: 0.3,         // Starting time (0-1, where 0=midnight, 0.5=noon)
+        playerSpeed: 5,         // Player movement speed
+        playerTurnSpeed: 5      // Player rotation speed
     },
     
     // Optional features

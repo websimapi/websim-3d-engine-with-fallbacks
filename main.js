@@ -3,6 +3,7 @@
  */
 import { Engine } from './engine.js';
 import { ChunkedScene } from './scene.js';
+import { CharacterController } from './CharacterController.js';
 import { config } from './config.js';
 import { UI } from './utils.js';
 
@@ -158,7 +159,8 @@ class Application {
                 }).on('change', () => {
                     if (this.engine && this.engine.scene) {
                         // Force reload chunks with new terrain type
-                        this.engine.scene.updateChunkSettings();
+                        this.engine.scene.lastCameraChunkX = null;
+                        this.engine.scene.lastCameraChunkZ = null;
                     }
                 });
                 
@@ -168,7 +170,10 @@ class Application {
                     step: 1
                 }).on('change', () => {
                     if (this.engine && this.engine.scene) {
-                        this.engine.scene.updateChunkSettings();
+                        this.engine.scene.terrainHeight = config.world.terrainHeight;
+                        // Force reload chunks
+                        this.engine.scene.lastCameraChunkX = null;
+                        this.engine.scene.lastCameraChunkZ = null;
                     }
                 });
                 
@@ -178,7 +183,10 @@ class Application {
                     step: 0.001
                 }).on('change', () => {
                     if (this.engine && this.engine.scene) {
-                        this.engine.scene.updateChunkSettings();
+                        this.engine.scene.terrainScale = config.world.terrainScale;
+                        // Force reload chunks
+                        this.engine.scene.lastCameraChunkX = null;
+                        this.engine.scene.lastCameraChunkZ = null;
                     }
                 });
                 
@@ -205,9 +213,11 @@ class Application {
                 worldFolder.addButton({
                     title: 'Regenerate World'
                 }).on('click', () => {
-                    config.world.seed = Math.floor(Math.random() * 10000);
+                    config.world.seed = Math.random() * 10000 | 0;
                     if (this.engine && this.engine.scene) {
-                        this.engine.scene.updateChunkSettings();
+                        // Force reload chunks
+                        this.engine.scene.lastCameraChunkX = null;
+                        this.engine.scene.lastCameraChunkZ = null;
                     }
                 });
                 
