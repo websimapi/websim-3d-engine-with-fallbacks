@@ -48,9 +48,6 @@ export class ChunkedScene {
             this.multiplayerManager = new MultiplayerManager(this);
         }
         
-        // Initialize player controller
-        this.playerController = new PlayerController(this);
-        
         // Update chunk settings
         this.updateChunkSettings();
     }
@@ -138,14 +135,15 @@ export class ChunkedScene {
             this.playerSphere.userData = { physicsBody: this.playerBody };
         }
         
+        // Initialize player controller with references to player objects
+        this.playerController = new PlayerController(this);
+        this.playerController.setPlayerObjects(this.playerSphere, this.playerBody);
+        
         // Create small objects that can be picked up
         this.pickupObjects = [];
         
         // Create initial objects in the spawn chunk
         this.createInitialPickupObjects();
-        
-        // Set up player controller with references to player objects
-        this.playerController.setPlayerObjects(this.playerSphere, this.playerBody);
     }
     
     // Create initial pickup objects in the spawn chunk
