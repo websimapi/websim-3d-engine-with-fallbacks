@@ -55,6 +55,7 @@ export class CharacterController {
             this.plane = new THREE.Mesh(planeGeometry, planeMaterial);
             this.plane.rotation.x = -Math.PI / 2;
             this.plane.position.y = 0;
+            this.plane.userData.isPlane = true;
             this.scene.threeScene.add(this.plane);
             
             // Create a character model
@@ -139,10 +140,12 @@ export class CharacterController {
             this.mesh = result.scene;
             this.mesh.scale.set(5, 5, 5);
             this.mesh.position.y = 0;
+            this.mesh.userData.isCharacter = true;  // Mark as character for raycasting
             this.mesh.traverse(child => {
                 if (child.isMesh) {
                     child.castShadow = true;
                     child.receiveShadow = true;
+                    child.userData.isCharacter = true;  // Mark all child meshes
                 }
             });
             
@@ -196,17 +199,22 @@ export class CharacterController {
         const camera = this.engine.activeEngines.renderer.getCamera();
         this.raycaster.setFromCamera(mouse, camera);
         
-        // Check for intersection with the ground plane
-        const intersects = this.raycaster.intersectObject(this.plane);
+        // First check for intersections with terrain chunks
+        let intersects = this.raycaster.intersectObjects(this.scene.threeScene.children, true);
+        
+        // Filter out non-terrain objects (like our character)
+        intersects = intersects.filter(hit => hit.object !== this.mesh && 
+                                       hit.object !== this.plane && 
+                                       !hit.object.userData.isCharacter);
         
         if (intersects.length > 0) {
             // Get point of intersection
             const point = intersects[0].point;
             
-            // Set new target position (keep y at current height - physics will handle)
+            // Set new target position
             this.targetPosition = { 
                 x: point.x, 
-                y: this.getGroundHeight(point.x, point.z), 
+                y: point.y, // Use the actual hit point y value
                 z: point.z 
             };
             
@@ -218,6 +226,8 @@ export class CharacterController {
             // Start moving
             this.isMoving = true;
             this.playAnimation('run');
+            
+            console.log('Moving to:', this.targetPosition);
         }
     }
     
@@ -330,7 +340,7 @@ export class CharacterController {
                         Math.cos(this.currentRotation) * this.moveSpeed
                     );
                     
-                    // Apply force to move character
+                    // Apply velocity to move character
                     this.physicsBody.velocity.x = moveDir.x;
                     this.physicsBody.velocity.z = moveDir.z;
                 } else {
@@ -347,9 +357,6 @@ export class CharacterController {
                 this.physicsBody.velocity.x *= 0.9;
                 this.physicsBody.velocity.z *= 0.9;
             }
-            
-            // Ensure target position y coordinate is updated with terrain
-            this.targetPosition.y = this.getGroundHeight(this.targetPosition.x, this.targetPosition.z);
         } else {
             // Fallback movement without physics
             if (this.isMoving) {
