@@ -310,15 +310,19 @@ export class ChunkedScene {
         // Set up mouse/touch drag controls
         this.canvas = document.getElementById('renderCanvas');
         
-        // Mouse events
-        this.canvas.addEventListener('mousedown', this.onDragStart.bind(this));
-        window.addEventListener('mousemove', this.onDragMove.bind(this));
-        window.addEventListener('mouseup', this.onDragEnd.bind(this));
+        // Mouse events - using bind to ensure proper 'this' context
+        this.onDragStartBound = this.onDragStart.bind(this);
+        this.onDragMoveBound = this.onDragMove.bind(this);
+        this.onDragEndBound = this.onDragEnd.bind(this);
         
-        // Touch events
-        this.canvas.addEventListener('touchstart', this.onDragStart.bind(this));
-        window.addEventListener('touchmove', this.onDragMove.bind(this));
-        window.addEventListener('touchend', this.onDragEnd.bind(this));
+        this.canvas.addEventListener('mousedown', this.onDragStartBound);
+        window.addEventListener('mousemove', this.onDragMoveBound);
+        window.addEventListener('mouseup', this.onDragEndBound);
+        
+        // Touch events - using same bound functions
+        this.canvas.addEventListener('touchstart', this.onDragStartBound);
+        window.addEventListener('touchmove', this.onDragMoveBound);
+        window.addEventListener('touchend', this.onDragEndBound);
     }
     
     // Handle drag start
@@ -1214,16 +1218,16 @@ export class ChunkedScene {
         this.chunks.clear();
         this.activeChunks.clear();
         
-        // Remove event listeners
+        // Remove event listeners with proper bound functions
         if (this.canvas) {
-            this.canvas.removeEventListener('mousedown', this.onDragStart);
-            this.canvas.removeEventListener('touchstart', this.onDragStart);
+            this.canvas.removeEventListener('mousedown', this.onDragStartBound);
+            this.canvas.removeEventListener('touchstart', this.onDragStartBound);
         }
         
-        window.removeEventListener('mousemove', this.onDragMove);
-        window.removeEventListener('mouseup', this.onDragEnd);
-        window.removeEventListener('touchmove', this.onDragMove);
-        window.removeEventListener('touchend', this.onDragEnd);
+        window.removeEventListener('mousemove', this.onDragMoveBound);
+        window.removeEventListener('mouseup', this.onDragEndBound);
+        window.removeEventListener('touchmove', this.onDragMoveBound);
+        window.removeEventListener('touchend', this.onDragEndBound);
         
         // Clean up renderer-specific resources
         if (this.engine.currentRenderingEngine === 'three.js') {
