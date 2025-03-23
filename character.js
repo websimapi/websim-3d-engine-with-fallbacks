@@ -79,7 +79,16 @@ export class CharacterController {
             
             this.mesh = result.scene;
             this.mesh.scale.set(5, 5, 5);
-            this.mesh.position.y = 0;
+            
+            // Ensure initial position is on the terrain
+            if (this.scene.getTerrainHeight) {
+                const terrainHeight = this.scene.getTerrainHeight(0, 0);
+                this.position.y = terrainHeight;
+                this.mesh.position.y = terrainHeight;
+            } else {
+                this.mesh.position.y = 0;
+            }
+            
             this.mesh.traverse(child => {
                 if (child.isMesh) {
                     child.castShadow = true;
@@ -100,15 +109,9 @@ export class CharacterController {
             // Add to scene
             this.scene.threeScene.add(this.mesh);
             
-            // Set initial position (changed from 0,0,0 to a different spot)
-            this.position = { x: 50, y: 0, z: 30 };
+            // Set initial position
+            this.position = { x: 0, y: this.mesh.position.y, z: 0 };
             this.targetPosition = { ...this.position };
-            
-            // Get initial terrain height at this position
-            if (this.scene.getTerrainHeight) {
-                this.position.y = this.scene.getTerrainHeight(this.position.x, this.position.z);
-            }
-            
             this.updatePosition();
         } catch (error) {
             console.error('Error loading character model:', error);
@@ -147,7 +150,11 @@ export class CharacterController {
             const point = intersects[0].point;
             
             // Set new target position
-            this.targetPosition = { x: point.x, y: 0, z: point.z };
+            this.targetPosition = { 
+                x: point.x, 
+                y: 0, // We'll set this to the correct height in the update method
+                z: point.z 
+            };
             
             // Calculate rotation to face the target
             const dx = this.targetPosition.x - this.position.x;
@@ -208,16 +215,12 @@ export class CharacterController {
                 const moveStepX = this.moveSpeed * deltaTime * Math.sin(this.currentRotation);
                 const moveStepZ = this.moveSpeed * deltaTime * Math.cos(this.currentRotation);
                 
-                // Apply movement
-                const newX = this.position.x + moveStepX;
-                const newZ = this.position.z + moveStepZ;
+                this.position.x += moveStepX;
+                this.position.z += moveStepZ;
                 
-                // Sample terrain height at new position
+                // Sample terrain height at current position
                 if (this.scene.getTerrainHeight) {
-                    this.position.x = newX;
-                    this.position.z = newZ;
-                    // Apply gravity and terrain following
-                    const terrainHeight = this.scene.getTerrainHeight(newX, newZ);
+                    const terrainHeight = this.scene.getTerrainHeight(this.position.x, this.position.z);
                     this.position.y = terrainHeight;
                 }
             } else {
@@ -229,10 +232,10 @@ export class CharacterController {
             // Update position
             this.updatePosition();
         } else {
-            // Even when not moving, ensure character is on the terrain
+            // When not moving, make sure we're still on the terrain
             if (this.scene.getTerrainHeight) {
                 const terrainHeight = this.scene.getTerrainHeight(this.position.x, this.position.z);
-                if (Math.abs(this.position.y - terrainHeight) > 0.1) {
+                if (this.position.y !== terrainHeight) {
                     this.position.y = terrainHeight;
                     this.updatePosition();
                 }
