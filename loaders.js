@@ -44,7 +44,7 @@ export class ResourceManager {
                         reject(new Error(`Failed to load from ${currentUrl}`));
                     };
                     
-                    document.body.appendChild(script);
+                    document.head.appendChild(script);
                 });
                 
                 // If we got here, the library loaded successfully
