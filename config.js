@@ -39,7 +39,7 @@ export const config = {
         far: 2000,
         position: { x: 0, y: 30, z: 100 },
         lookAt: { x: 0, y: 0, z: 0 },
-        moveSpeed: 1,
+        moveSpeed: 3, // Increased from 1 to 3 for faster movement
     },
 
     // World generation

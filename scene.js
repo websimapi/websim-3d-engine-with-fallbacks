@@ -225,6 +225,59 @@ export class ChunkedScene {
         });
     }
     
+    // Update player movement based on input
+    updatePlayerControls(deltaTime) {
+        if (!this.playerBody || !this.keys) return;
+        
+        // Get camera direction for relative movement
+        const camera = this.engine.activeEngines.renderer.getCamera();
+        const cameraDirection = new THREE.Vector3();
+        camera.getWorldDirection(cameraDirection);
+        cameraDirection.y = 0; // Keep movement on ground plane
+        cameraDirection.normalize();
+        
+        // Calculate forward and right vectors
+        const forward = cameraDirection.clone();
+        const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), forward).normalize();
+        
+        // Force strength
+        const forceStrength = 20 * (this.playerBody.mass / 5); // Scale with mass
+        let forceVector = new CANNON.Vec3(0, 0, 0);
+        
+        // Apply forces based on input
+        if (this.keys.forward) {
+            forceVector.x += forward.x * forceStrength;
+            forceVector.z += forward.z * forceStrength;
+        }
+        if (this.keys.backward) {
+            forceVector.x -= forward.x * forceStrength;
+            forceVector.z -= forward.z * forceStrength;
+        }
+        if (this.keys.right) {
+            forceVector.x += right.x * forceStrength;
+            forceVector.z += right.z * forceStrength;
+        }
+        if (this.keys.left) {
+            forceVector.x -= right.x * forceStrength;
+            forceVector.z -= right.z * forceStrength;
+        }
+        
+        // Apply jump if space is pressed and player is near ground
+        if (this.keys.jump && Math.abs(this.playerBody.position.y - this.playerBody.shapes[0].radius - (-5)) < 0.5) {
+            forceVector.y = forceStrength * 10;
+        }
+        
+        // Apply the force
+        this.playerBody.applyForce(forceVector, this.playerBody.position);
+        
+        // Debug - log when keys are pressed
+        if (this.keys.forward || this.keys.backward || this.keys.left || this.keys.right) {
+            console.log('Moving with keys:', this.keys);
+            console.log('Force vector:', forceVector);
+            console.log('Player position:', this.playerBody.position);
+        }
+    }
+    
     // Setup controls for moving the Katamari ball
     setupKatamariControls() {
         // Input state
@@ -238,6 +291,7 @@ export class ChunkedScene {
         
         // Set up keyboard controls
         window.addEventListener('keydown', (e) => {
+            console.log('Key pressed:', e.key);
             switch(e.key.toLowerCase()) {
                 case 'w':
                 case 'arrowup':
@@ -284,52 +338,6 @@ export class ChunkedScene {
                     break;
             }
         });
-    }
-    
-    // Update player movement based on input
-    updatePlayerControls(deltaTime) {
-        if (!this.playerBody || !this.keys) return;
-        
-        // Get camera direction for relative movement
-        const camera = this.engine.activeEngines.renderer.getCamera();
-        const cameraDirection = new THREE.Vector3();
-        camera.getWorldDirection(cameraDirection);
-        cameraDirection.y = 0; // Keep movement on ground plane
-        cameraDirection.normalize();
-        
-        // Calculate forward and right vectors
-        const forward = cameraDirection.clone();
-        const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0));
-        
-        // Force strength
-        const forceStrength = 20 * (this.playerBody.mass / 5); // Scale with mass
-        let forceVector = new CANNON.Vec3(0, 0, 0);
-        
-        // Apply forces based on input
-        if (this.keys.forward) {
-            forceVector.x += forward.x * forceStrength;
-            forceVector.z += forward.z * forceStrength;
-        }
-        if (this.keys.backward) {
-            forceVector.x -= forward.x * forceStrength;
-            forceVector.z -= forward.z * forceStrength;
-        }
-        if (this.keys.right) {
-            forceVector.x += right.x * forceStrength;
-            forceVector.z += right.z * forceStrength;
-        }
-        if (this.keys.left) {
-            forceVector.x -= right.x * forceStrength;
-            forceVector.z -= right.z * forceStrength;
-        }
-        
-        // Apply jump if space is pressed and player is near ground
-        if (this.keys.jump && Math.abs(this.playerBody.position.y - this.playerBody.shapes[0].radius - (-5)) < 0.5) {
-            forceVector.y = forceStrength * 10;
-        }
-        
-        // Apply the force
-        this.playerBody.applyForce(forceVector, this.playerBody.position);
     }
     
     // Initialize for Babylon.js renderer
