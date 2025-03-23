@@ -664,6 +664,11 @@ class ThreeRenderer {
                          obj.type === 'PointLight')) {
                         obj.castShadow = settings.shadows;
                     }
+                    
+                    // Also disable castShadow on all meshes when shadows are disabled
+                    if (obj.isMesh) {
+                        obj.castShadow = settings.shadows;
+                    }
                 });
             }
             
