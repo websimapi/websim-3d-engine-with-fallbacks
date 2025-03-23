@@ -30,6 +30,7 @@ export const config = {
         chunkSize: 50, // Size of each world chunk
         chunkDetailLevels: 3, // LOD levels
         manualShadowSetting: null, // Track if shadows were manually changed
+        maxRenderDistance: 10, // Maximum render distance setting
     },
 
     // Camera settings
