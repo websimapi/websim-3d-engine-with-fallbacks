@@ -3,7 +3,6 @@
  */
 import { config } from './config.js';
 import { MathUtils } from './utils.js';
-import { CharacterController } from './character.js';
 
 export class ChunkedScene {
     constructor(engine) {
@@ -29,8 +28,6 @@ export class ChunkedScene {
         // Babylon.js specific objects
         this.babylonScene = null;
         
-        this.character = null;
-        
         this.initialize();
     }
     
@@ -46,21 +43,6 @@ export class ChunkedScene {
         
         // Update chunk settings
         this.updateChunkSettings();
-        
-        // Initialize character
-        if (this.engine.activeEngines.renderer && this.engine.currentRenderingEngine === 'three.js') {
-            setTimeout(() => {
-                this.initializeCharacter();
-            }, 1000); // Slight delay to ensure scene is ready
-        }
-    }
-    
-    async initializeCharacter() {
-        try {
-            this.character = new CharacterController(this.engine, this);
-        } catch (error) {
-            console.error('Failed to initialize character:', error);
-        }
     }
     
     // Initialize for Three.js renderer
@@ -87,7 +69,6 @@ export class ChunkedScene {
         ground.rotation.x = -Math.PI / 2;
         ground.position.y = -5;
         ground.receiveShadow = true;
-        ground.name = "groundPlane";
         
         this.threeScene.add(ground);
         
@@ -155,28 +136,31 @@ export class ChunkedScene {
             const cube = new THREE.Mesh(geometry, material);
             cube.position.set(
                 (i * 20) - 40,
-                15,
+                15 + (i * 10), // staggered height for more interesting physics
                 -20
             );
             cube.castShadow = true;
             cube.receiveShadow = true;
-            cube.name = `testCube_${i}`;
+            this.threeScene.add(cube);
             
-            // Add physics for the cube
-            if (this.engine.activeEngines.physics) {
-                const cubeShape = new CANNON.Box(new CANNON.Vec3(5, 5, 5));
-                const cubeBody = this.engine.activeEngines.physics.createBody({
-                    mass: 10,
+            // Add physics if available
+            if (this.engine.activeEngines.physics && this.engine.activeEngines.physics.world) {
+                const shape = new CANNON.Box(new CANNON.Vec3(5, 5, 5));
+                const body = new CANNON.Body({
+                    mass: 1,
                     position: new CANNON.Vec3(cube.position.x, cube.position.y, cube.position.z),
-                    shape: cubeShape
+                    shape: shape
                 });
                 
-                // Store reference to the mesh and body for updates
-                cube.userData.physicsBody = cubeBody;
-                cubeBody.userData = { mesh: cube };
+                // Store reference to visual object
+                body.userData = { visual: cube };
+                
+                this.engine.activeEngines.physics.world.addBody(body);
+                this.engine.activeEngines.physics.bodies.push(body);
+                
+                // Store reference to physics body
+                cube.userData = { physicsBody: body };
             }
-            
-            this.threeScene.add(cube);
         }
         
         // Add a few spheres
@@ -191,41 +175,31 @@ export class ChunkedScene {
             const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
             sphere.position.set(
                 (i * 25) - 25,
-                10,
+                30 + (i * 15), // staggered height for more interesting physics
                 20
             );
             sphere.castShadow = true;
             sphere.receiveShadow = true;
-            sphere.name = `testSphere_${i}`;
+            this.threeScene.add(sphere);
             
-            // Add physics for the sphere
-            if (this.engine.activeEngines.physics) {
-                const sphereShape = new CANNON.Sphere(7);
-                const sphereBody = this.engine.activeEngines.physics.createBody({
-                    mass: 5,
+            // Add physics if available
+            if (this.engine.activeEngines.physics && this.engine.activeEngines.physics.world) {
+                const shape = new CANNON.Sphere(7);
+                const body = new CANNON.Body({
+                    mass: 1,
                     position: new CANNON.Vec3(sphere.position.x, sphere.position.y, sphere.position.z),
-                    shape: sphereShape
+                    shape: shape
                 });
                 
-                // Store reference to the mesh and body for updates
-                sphere.userData.physicsBody = sphereBody;
-                sphereBody.userData = { mesh: sphere };
+                // Store reference to visual object
+                body.userData = { visual: sphere };
+                
+                this.engine.activeEngines.physics.world.addBody(body);
+                this.engine.activeEngines.physics.bodies.push(body);
+                
+                // Store reference to physics body
+                sphere.userData = { physicsBody: body };
             }
-            
-            this.threeScene.add(sphere);
-        }
-        
-        // Add a ground physics body for terrain collision
-        if (this.engine.activeEngines.physics) {
-            const groundShape = new CANNON.Plane();
-            const groundBody = this.engine.activeEngines.physics.createBody({
-                mass: 0, // Static body
-                position: new CANNON.Vec3(0, -5, 0),
-                shape: groundShape
-            });
-            
-            // Rotate to make it horizontal
-            groundBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI/2);
         }
     }
     
@@ -278,17 +252,6 @@ export class ChunkedScene {
             this.updateDayNightCycle(deltaTime);
         }
         
-        // Update physics objects to match their visual representation
-        if (this.engine.activeEngines.physics && this.threeScene) {
-            this.threeScene.traverse((object) => {
-                if (object.userData && object.userData.physicsBody) {
-                    const body = object.userData.physicsBody;
-                    object.position.copy(body.position);
-                    object.quaternion.copy(body.quaternion);
-                }
-            });
-        }
-        
         // Get current camera position
         const cameraPosition = this.getCameraPosition();
         
@@ -301,11 +264,6 @@ export class ChunkedScene {
             this.updateVisibleChunks(chunkX, chunkZ);
             this.lastCameraChunkX = chunkX;
             this.lastCameraChunkZ = chunkZ;
-        }
-        
-        // Update character
-        if (this.character) {
-            this.character.update(deltaTime);
         }
     }
     
@@ -524,7 +482,6 @@ export class ChunkedScene {
             mesh.position.set(worldX + this.chunkSize/2, 0, worldZ + this.chunkSize/2);
             mesh.castShadow = true;
             mesh.receiveShadow = true;
-            mesh.name = `terrain_chunk_${chunkX}_${chunkZ}`;
             
             // Add to scene
             if (this.threeScene) {
@@ -685,12 +642,6 @@ export class ChunkedScene {
         
         this.chunks.clear();
         this.activeChunks.clear();
-        
-        // Dispose character
-        if (this.character) {
-            this.character.dispose();
-            this.character = null;
-        }
         
         // Clean up renderer-specific resources
         if (this.engine.currentRenderingEngine === 'three.js') {

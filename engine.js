@@ -135,11 +135,6 @@ export class Engine {
             // Create the appropriate renderer
             if (this.currentRenderingEngine === 'three.js') {
                 renderer = new ThreeRenderer(this.canvas, config);
-                
-                // Also load the GLTFLoader for character models
-                if (typeof THREE !== 'undefined') {
-                    THREE.GLTFLoader = await import('three/addons/loaders/GLTFLoader.js').then(m => m.GLTFLoader);
-                }
             } else if (this.currentRenderingEngine === 'babylon.js') {
                 renderer = new BabylonRenderer(this.canvas, config);
             } else {
@@ -982,6 +977,14 @@ class CannonPhysics {
             // Enable sleeping for better performance
             this.world.allowSleep = true;
             
+            // Create ground plane
+            const groundShape = new CANNON.Plane();
+            const groundBody = new CANNON.Body({ mass: 0 }); // mass 0 = static
+            groundBody.addShape(groundShape);
+            groundBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2); // rotate to be flat
+            groundBody.position.set(0, -5, 0); // match the visual ground position
+            this.world.addBody(groundBody);
+            
             return true;
         } catch (error) {
             console.error('Failed to initialize Cannon.js physics:', error);
@@ -997,6 +1000,28 @@ class CannonPhysics {
         const fixedTimeStep = 1/60;
         
         this.world.step(fixedTimeStep, deltaTime, maxSubSteps);
+        
+        // Update visual objects based on physics
+        this.bodies.forEach(body => {
+            if (body.userData && body.userData.visual) {
+                const visual = body.userData.visual;
+                
+                // Update position
+                visual.position.set(
+                    body.position.x,
+                    body.position.y,
+                    body.position.z
+                );
+                
+                // Update rotation
+                visual.quaternion.set(
+                    body.quaternion.x,
+                    body.quaternion.y,
+                    body.quaternion.z,
+                    body.quaternion.w
+                );
+            }
+        });
     }
     
     createBody(options) {

@@ -42,16 +42,6 @@ export const config = {
         moveSpeed: 1,
     },
 
-    // Character settings
-    character: {
-        moveSpeed: 10,
-        rotationSpeed: 10,
-        cameraOffset: { x: 0, y: 20, z: 40 },
-        animationSpeed: 1.0,
-        jumpForce: 10,
-        mass: 70
-    },
-
     // World generation
     world: {
         seed: Math.random() * 10000 | 0,
