@@ -2,7 +2,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Engine with Fallbacks</title>
+    <title>Multiplayer Katamari Engine</title>
     <link rel="stylesheet" href="styles.css">
     <script type="importmap">
     {
@@ -13,6 +13,8 @@
     }
     </script>
     <script src="cannon.min.js"></script>
+    <!-- Add seedrandom for deterministic random generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/seedrandom/3.0.5/seedrandom.min.js"></script>
 </head>
 <body>
     <div id="loading-screen">
@@ -44,6 +46,7 @@
     <script src="config.js" type="module"></script>
     <script src="utils.js" type="module"></script>
     <script src="loaders.js" type="module"></script>
+    <script src="multiplayer.js" type="module"></script>
     <script src="engine.js" type="module"></script>
     <script src="scene.js" type="module"></script>
     <script src="main.js" type="module"></script>

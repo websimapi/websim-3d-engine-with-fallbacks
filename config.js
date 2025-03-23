@@ -51,12 +51,14 @@ export const config = {
         terrainScale: 0.005,
         dayNightCycle: true,    // Enable day/night cycle
         dayLength: 900,         // Day length in seconds
-        timeOfDay: 0.3          // Starting time (0-1, where 0=midnight, 0.5=noon)
+        timeOfDay: 0.3,         // Starting time (0-1, where 0=midnight, 0.5=noon)
+        floatingObjects: true   // Enable floating objects in the sky
     },
     
     // Optional features
     features: {
-        meshBVH: false  // Disabled to avoid CDN loading issues
+        meshBVH: false,  // Disabled to avoid CDN loading issues
+        multiplayer: true // Enable multiplayer functionality
     }
 };
 

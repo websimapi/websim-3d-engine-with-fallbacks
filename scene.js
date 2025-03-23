@@ -41,6 +41,11 @@ export class ChunkedScene {
             }
         }
         
+        // Initialize multiplayer if enabled
+        if (config.features.multiplayer) {
+            this.multiplayerManager = new MultiplayerManager(this);
+        }
+        
         // Update chunk settings
         this.updateChunkSettings();
     }
@@ -259,8 +264,7 @@ export class ChunkedScene {
             startY: 0,
             currentX: 0,
             currentY: 0,
-            forceMultiplier: 2,
-            dragDuration: 0 // Track how long the drag has been happening
+            forceMultiplier: 2
         };
         
         // Set up keyboard controls
@@ -476,6 +480,11 @@ export class ChunkedScene {
         // Check for pickups and object collisions
         this.checkPickups();
         
+        // Update multiplayer manager
+        if (this.multiplayerManager) {
+            this.multiplayerManager.update(deltaTime);
+        }
+        
         // Get current camera position
         const cameraPosition = this.getCameraPosition();
         
@@ -596,9 +605,8 @@ export class ChunkedScene {
         const forward = cameraDirection.clone();
         const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0));
         
-        // Force strength - scale based on ball mass but with a more gradual increase
-        // Reduced base force strength to allow for better acceleration control
-        const forceStrength = 40 * (this.playerBody.mass / 5); 
+        // Force strength - increased by 2.5x
+        const forceStrength = 100 * (this.playerBody.mass / 5); 
         let forceVector = new CANNON.Vec3(0, 0, 0);
         
         // Apply forces based on keyboard input
@@ -627,32 +635,32 @@ export class ChunkedScene {
             
             // Only apply if drag amount is significant
             if (Math.abs(dragX) > 5 || Math.abs(dragY) > 5) {
-                // Increase force gradually over time for more natural acceleration
-                // Start with a lower multiplier that increases with continued dragging
-                const dragDuration = this.dragControls.dragDuration || 0;
-                this.dragControls.dragDuration = dragDuration + deltaTime;
-                
-                // Acceleration factor - increases with drag duration but caps at a maximum
-                const accelFactor = Math.min(1.0, this.dragControls.dragDuration * 0.5);
-                
-                // Convert screen drag to world direction - reduced base multiplier
-                forceVector.x += (forward.x * -dragY + right.x * dragX) * this.dragControls.forceMultiplier * 5 * accelFactor; 
-                forceVector.z += (forward.z * -dragY + right.z * dragX) * this.dragControls.forceMultiplier * 5 * accelFactor;
+                // Convert screen drag to world direction - force increased by 3x
+                // Negative dragY means drag up = move forward
+                forceVector.x += (forward.x * -dragY + right.x * dragX) * this.dragControls.forceMultiplier * 12; 
+                forceVector.z += (forward.z * -dragY + right.z * dragX) * this.dragControls.forceMultiplier * 12; 
                 
                 // Update start position for continuous dragging
                 this.dragControls.startX = this.dragControls.currentX;
                 this.dragControls.startY = this.dragControls.currentY;
             }
-        } else {
-            // Reset drag duration when not dragging
-            if (this.dragControls) {
-                this.dragControls.dragDuration = 0;
-            }
         }
         
         // Apply jump if space is pressed and player is near ground
-        if (this.keys.jump && Math.abs(this.playerBody.position.y - this.playerBody.shapes[0].radius - (-5)) < 0.5) {
-            forceVector.y = forceStrength * 10;
+        if (this.keys.jump) {
+            // Check if player is on or near ground (within 0.5 units)
+            const ray = new CANNON.Ray();
+            ray.from.copy(this.playerBody.position);
+            ray.to.copy(this.playerBody.position);
+            ray.to.y -= this.playerBody.shapes[0].radius + 0.5;
+            
+            const result = new CANNON.RaycastResult();
+            ray.intersectWorld(this.engine.activeEngines.physics.world, { result });
+            
+            if (result.hasHit) {
+                // Player is on ground, apply jump force (proportional to mass)
+                forceVector.y = forceStrength * 15;
+            }
         }
         
         // Apply the force
@@ -690,6 +698,16 @@ export class ChunkedScene {
     // Attach an object to the player
     attachObjectToPlayer(object) {
         if (!object || !this.playerBody) return;
+        
+        // Get chunk ID from object position
+        const chunkX = Math.floor(object.body.position.x / this.chunkSize);
+        const chunkZ = Math.floor(object.body.position.z / this.chunkSize);
+        const chunkId = `${chunkX},${chunkZ}`;
+        
+        // Notify multiplayer if available
+        if (this.multiplayerManager && object.id) {
+            this.multiplayerManager.storeObjectPickup(chunkId, object.id);
+        }
         
         // Remove from physics world
         if (this.engine.activeEngines.physics && this.engine.activeEngines.physics.world) {
@@ -840,34 +858,61 @@ export class ChunkedScene {
     createPickupObjectsInChunk(chunk, worldX, worldZ) {
         if (!this.threeScene) return;
         
+        // Generate a deterministic seed for this chunk based on world seed and chunk position
+        const chunkSeed = this.seed + (chunk.chunkX * 1000) + chunk.chunkZ;
+        const random = new Math.seedrandom(chunkSeed);
+        
         const objectShapes = [
             { 
                 geometry: new THREE.BoxGeometry(0.5, 0.5, 0.5),
                 mass: 0.5,
-                count: 3 + Math.floor(Math.random() * 3), // 3-5 per chunk
+                count: 3 + Math.floor(random() * 3), // 3-5 per chunk
                 createShape: size => new CANNON.Box(new CANNON.Vec3(size/2, size/2, size/2)),
                 color: 0xff4444
             },
             { 
                 geometry: new THREE.SphereGeometry(0.3, 16, 16),
                 mass: 0.3,
-                count: 2 + Math.floor(Math.random() * 3), // 2-4 per chunk
+                count: 2 + Math.floor(random() * 3), // 2-4 per chunk
                 createShape: radius => new CANNON.Sphere(radius),
                 color: 0x44ff44
             },
             { 
                 geometry: new THREE.ConeGeometry(0.3, 0.6, 16),
                 mass: 0.4,
-                count: 1 + Math.floor(Math.random() * 3), // 1-3 per chunk
+                count: 1 + Math.floor(random() * 3), // 1-3 per chunk
                 createShape: size => new CANNON.Cylinder(0, size, size*2, 8),
                 color: 0x4444ff
+            },
+            { 
+                geometry: new THREE.BoxGeometry(2, 2, 2),
+                mass: 5,
+                count: 1 + Math.floor(random() * 2), // 1-2 large objects per chunk
+                createShape: size => new CANNON.Box(new CANNON.Vec3(size/2, size/2, size/2)),
+                color: 0xffaa22
             }
         ];
         
-        // Skip spawning objects in the origin chunk (they're already there from the start)
-        if (worldX === 0 && worldZ === 0) {
+        // Check if we have stored objects for this chunk
+        const chunkId = `${chunk.chunkX},${chunk.chunkZ}`;
+        let storedObjects = null;
+        
+        if (this.multiplayerManager) {
+            storedObjects = this.multiplayerManager.getChunkObjects(chunkId);
+        }
+        
+        // If we have stored objects, use those instead of creating new ones
+        if (storedObjects) {
+            this.createStoredObjects(storedObjects, chunkId);
             return;
         }
+        
+        // Skip spawning objects in the origin chunk if already populated
+        if (worldX === 0 && worldZ === 0 && this.pickupObjects.length > 0) {
+            return;
+        }
+        
+        const chunkObjects = [];
         
         objectShapes.forEach(objectType => {
             for (let i = 0; i < objectType.count; i++) {
@@ -880,21 +925,33 @@ export class ChunkedScene {
                 const mesh = new THREE.Mesh(objectType.geometry, material);
                 
                 // Position within this chunk
-                const offsetX = Math.random() * this.chunkSize;
-                const offsetZ = Math.random() * this.chunkSize;
+                const offsetX = random() * this.chunkSize;
+                const offsetZ = random() * this.chunkSize;
                 
                 // Get terrain height at this position for proper placement
                 const terrainHeight = this.getTerrainHeight(worldX + offsetX, worldZ + offsetZ);
                 
+                // Determine if this should be a floating object (only for light objects)
+                const isFloating = config.world.floatingObjects && 
+                                   objectType.mass < 1 && 
+                                   random() < 0.3; // 30% chance for eligible objects
+                
+                const y = isFloating ? 
+                    Math.max(terrainHeight, 0) + 10 + random() * 15 : // Float 10-25 units above terrain
+                    Math.max(terrainHeight, 0) + 3 + random() * 2;    // Regular placement
+                
                 mesh.position.set(
                     worldX + offsetX,
-                    Math.max(terrainHeight, 0) + 3 + Math.random() * 2, // Place a bit above terrain
+                    y,
                     worldZ + offsetZ
                 );
                 
                 mesh.castShadow = true;
                 mesh.receiveShadow = true;
                 this.threeScene.add(mesh);
+                
+                // Generate a unique ID for this object
+                const objectId = `obj_${chunkId}_${i}_${Date.now()}${Math.floor(random() * 1000)}`;
                 
                 // Add physics
                 if (this.engine.activeEngines.physics && this.engine.activeEngines.physics.world) {
@@ -923,22 +980,162 @@ export class ChunkedScene {
                         visual: mesh,
                         isPickup: true,
                         originalMass: objectType.mass,
-                        size: size
+                        size: size,
+                        objectId: objectId
                     };
+                    
+                    // If floating, make it slightly bouncy and apply upward force
+                    if (isFloating) {
+                        body.linearDamping = 0.9; // Air resistance
+                        body.angularDamping = 0.9; // Slow rotation
+                        
+                        // Apply small random force to make it move slightly
+                        const floatForce = new CANNON.Vec3(
+                            (random() - 0.5) * 0.5,
+                            2 + random() * 1,  // Upward force
+                            (random() - 0.5) * 0.5
+                        );
+                        body.applyLocalForce(floatForce, new CANNON.Vec3(0, 0, 0));
+                    }
                     
                     this.engine.activeEngines.physics.world.addBody(body);
                     this.engine.activeEngines.physics.bodies.push(body);
                     
                     // Store reference to physics body
-                    mesh.userData = { physicsBody: body };
+                    mesh.userData = { 
+                        physicsBody: body,
+                        objectId: objectId
+                    };
                     
                     // Add to our pickup objects array
-                    this.pickupObjects.push({ mesh, body });
+                    this.pickupObjects.push({ mesh, body, id: objectId });
+                    
+                    // Store for multiplayer
+                    chunkObjects.push({
+                        id: objectId,
+                        type: objectType.geometry.type,
+                        position: { x: mesh.position.x, y: mesh.position.y, z: mesh.position.z },
+                        size: size,
+                        color: objectType.color,
+                        mass: objectType.mass,
+                        isFloating: isFloating
+                    });
                 }
             }
         });
+        
+        // Store the objects for this chunk in multiplayer manager
+        if (this.multiplayerManager && chunkObjects.length > 0) {
+            this.multiplayerManager.saveChunkObjects(chunkId, chunkObjects);
+        }
     }
-
+    
+    // Create objects from stored data
+    createStoredObjects(objects, chunkId) {
+        if (!this.threeScene || !objects || objects.length === 0) return;
+        
+        objects.forEach(objectData => {
+            // Create appropriate geometry
+            let geometry;
+            if (objectData.type.includes('Sphere')) {
+                geometry = new THREE.SphereGeometry(objectData.size, 16, 16);
+            } else if (objectData.type.includes('Box')) {
+                geometry = new THREE.BoxGeometry(objectData.size, objectData.size, objectData.size);
+            } else if (objectData.type.includes('Cone')) {
+                geometry = new THREE.ConeGeometry(objectData.size, objectData.size * 2, 16);
+            } else {
+                // Default to cube if unknown
+                geometry = new THREE.BoxGeometry(objectData.size, objectData.size, objectData.size);
+            }
+            
+            const material = new THREE.MeshStandardMaterial({
+                color: objectData.color,
+                roughness: 0.7,
+                metalness: 0.2
+            });
+            
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.position.set(
+                objectData.position.x,
+                objectData.position.y,
+                objectData.position.z
+            );
+            
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            this.threeScene.add(mesh);
+            
+            // Add physics
+            if (this.engine.activeEngines.physics && this.engine.activeEngines.physics.world) {
+                let shape;
+                
+                if (objectData.type.includes('Sphere')) {
+                    shape = new CANNON.Sphere(objectData.size);
+                } else if (objectData.type.includes('Box')) {
+                    shape = new CANNON.Box(new CANNON.Vec3(
+                        objectData.size/2, 
+                        objectData.size/2, 
+                        objectData.size/2
+                    ));
+                } else if (objectData.type.includes('Cone')) {
+                    shape = new CANNON.Cylinder(0, objectData.size, objectData.size * 2, 8);
+                } else {
+                    // Default to box
+                    shape = new CANNON.Box(new CANNON.Vec3(
+                        objectData.size/2, 
+                        objectData.size/2, 
+                        objectData.size/2
+                    ));
+                }
+                
+                const body = new CANNON.Body({
+                    mass: objectData.mass,
+                    position: new CANNON.Vec3(
+                        objectData.position.x,
+                        objectData.position.y,
+                        objectData.position.z
+                    ),
+                    shape: shape
+                });
+                
+                // Store reference to visual object
+                body.userData = { 
+                    visual: mesh,
+                    isPickup: true,
+                    originalMass: objectData.mass,
+                    size: objectData.size,
+                    objectId: objectData.id
+                };
+                
+                // If floating, make it slightly bouncy and apply upward force
+                if (objectData.isFloating) {
+                    body.linearDamping = 0.9; // Air resistance
+                    body.angularDamping = 0.9; // Slow rotation
+                    
+                    // Apply small random force to make it move slightly
+                    const floatForce = new CANNON.Vec3(
+                        (Math.random() - 0.5) * 0.5,
+                        2 + Math.random() * 1,  // Upward force
+                        (Math.random() - 0.5) * 0.5
+                    );
+                    body.applyLocalForce(floatForce, new CANNON.Vec3(0, 0, 0));
+                }
+                
+                this.engine.activeEngines.physics.world.addBody(body);
+                this.engine.activeEngines.physics.bodies.push(body);
+                
+                // Store reference to physics body
+                mesh.userData = { 
+                    physicsBody: body,
+                    objectId: objectData.id
+                };
+                
+                // Add to our pickup objects array
+                this.pickupObjects.push({ mesh, body, id: objectData.id });
+            }
+        });
+    }
+    
     // Unload a chunk by ID
     unloadChunk(chunkId) {
         const chunk = this.chunks.get(chunkId);
@@ -1231,6 +1428,12 @@ export class ChunkedScene {
         
         this.chunks.clear();
         this.activeChunks.clear();
+        
+        // Clean up multiplayer
+        if (this.multiplayerManager) {
+            this.multiplayerManager.dispose();
+            this.multiplayerManager = null;
+        }
         
         // Remove event listeners
         if (this.canvas) {
