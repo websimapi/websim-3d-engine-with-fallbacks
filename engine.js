@@ -900,18 +900,26 @@ class CannonPhysics {
         try {
             // Check if CANNON is defined
             if (typeof CANNON === 'undefined') {
-                // Try to load it if not available
-                await new Promise((resolve, reject) => {
-                    const script = document.createElement('script');
-                    script.src = "https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.min.js";
-                    script.onload = resolve;
-                    script.onerror = reject;
-                    document.head.appendChild(script);
-                });
-                
-                // If still undefined after loading, throw error
-                if (typeof CANNON === 'undefined') {
-                    throw new Error('Cannot load Cannon.js');
+                console.warn('CANNON not found in global scope, checking for window.CANNON');
+                // Try alternative global variable
+                if (typeof window.CANNON !== 'undefined') {
+                    window.CANNON = window.CANNON;
+                } else {
+                    // Try to load it if not available
+                    await new Promise((resolve, reject) => {
+                        const script = document.createElement('script');
+                        script.src = "https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.min.js";
+                        script.onload = resolve;
+                        script.onerror = reject;
+                        document.head.appendChild(script);
+                    });
+                    
+                    // If still undefined after loading, throw error
+                    if (typeof CANNON === 'undefined' && typeof window.CANNON === 'undefined') {
+                        throw new Error('Cannot load Cannon.js');
+                    } else if (typeof window.CANNON !== 'undefined') {
+                        window.CANNON = window.CANNON;
+                    }
                 }
             }
             
@@ -1029,6 +1037,7 @@ class AmmoPhysics {
     
     async initialize() {
         if (typeof Ammo === 'undefined') {
+            console.warn('Ammo not found in global scope');
             // Try to load Ammo.js
             try {
                 await new Promise((resolve, reject) => {
@@ -1038,6 +1047,11 @@ class AmmoPhysics {
                     script.onerror = reject;
                     document.head.appendChild(script);
                 });
+                
+                // Check again after attempted load
+                if (typeof Ammo === 'undefined') {
+                    throw new Error('Ammo.js not loaded');
+                }
             } catch (error) {
                 throw new Error('Ammo.js not loaded');
             }
@@ -1103,6 +1117,7 @@ class RapierPhysics {
     
     async initialize() {
         if (typeof RAPIER === 'undefined') {
+            console.warn('RAPIER not found in global scope');
             // Try to load Rapier
             try {
                 await new Promise((resolve, reject) => {
@@ -1112,6 +1127,11 @@ class RapierPhysics {
                     script.onerror = reject;
                     document.head.appendChild(script);
                 });
+                
+                // Check again after attempted load
+                if (typeof RAPIER === 'undefined') {
+                    throw new Error('Rapier not loaded');
+                }
             } catch (error) {
                 throw new Error('Rapier not loaded');
             }
@@ -1155,6 +1175,7 @@ class PhysXPhysics {
     
     async initialize() {
         if (typeof PhysX === 'undefined') {
+            console.warn('PhysX not found in global scope');
             // Try to load PhysX
             try {
                 await new Promise((resolve, reject) => {
@@ -1164,6 +1185,11 @@ class PhysXPhysics {
                     script.onerror = reject;
                     document.head.appendChild(script);
                 });
+                
+                // Check again after attempted load
+                if (typeof PhysX === 'undefined') {
+                    throw new Error('PhysX not loaded');
+                }
             } catch (error) {
                 throw new Error('PhysX not loaded');
             }
