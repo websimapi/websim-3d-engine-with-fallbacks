@@ -158,8 +158,7 @@ class Application {
                 }).on('change', () => {
                     if (this.engine && this.engine.scene) {
                         // Force reload chunks with new terrain type
-                        this.engine.scene.lastCameraChunkX = null;
-                        this.engine.scene.lastCameraChunkZ = null;
+                        this.engine.scene.updateChunkSettings();
                     }
                 });
                 
@@ -169,10 +168,7 @@ class Application {
                     step: 1
                 }).on('change', () => {
                     if (this.engine && this.engine.scene) {
-                        this.engine.scene.terrainHeight = config.world.terrainHeight;
-                        // Force reload chunks
-                        this.engine.scene.lastCameraChunkX = null;
-                        this.engine.scene.lastCameraChunkZ = null;
+                        this.engine.scene.updateChunkSettings();
                     }
                 });
                 
@@ -182,10 +178,7 @@ class Application {
                     step: 0.001
                 }).on('change', () => {
                     if (this.engine && this.engine.scene) {
-                        this.engine.scene.terrainScale = config.world.terrainScale;
-                        // Force reload chunks
-                        this.engine.scene.lastCameraChunkX = null;
-                        this.engine.scene.lastCameraChunkZ = null;
+                        this.engine.scene.updateChunkSettings();
                     }
                 });
                 
@@ -212,11 +205,9 @@ class Application {
                 worldFolder.addButton({
                     title: 'Regenerate World'
                 }).on('click', () => {
-                    config.world.seed = Math.random() * 10000 | 0;
+                    config.world.seed = Math.floor(Math.random() * 10000);
                     if (this.engine && this.engine.scene) {
-                        // Force reload chunks
-                        this.engine.scene.lastCameraChunkX = null;
-                        this.engine.scene.lastCameraChunkZ = null;
+                        this.engine.scene.updateChunkSettings();
                     }
                 });
                 

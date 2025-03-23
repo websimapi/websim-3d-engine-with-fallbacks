@@ -201,6 +201,9 @@ export class ChunkedScene {
     updateChunkSettings() {
         this.loadDistance = config.performance.chunkLoadDistance;
         this.chunkSize = config.performance.chunkSize;
+        this.terrainHeight = config.world.terrainHeight;
+        this.terrainScale = config.world.terrainScale;
+        this.seed = config.world.seed;
         
         // Force update of chunks
         this.lastCameraChunkX = null;

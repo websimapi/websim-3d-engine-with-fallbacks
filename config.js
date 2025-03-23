@@ -44,7 +44,7 @@ export const config = {
 
     // World generation
     world: {
-        seed: Math.random() * 10000 | 0,
+        seed: Math.floor(Math.random() * 10000),
         infiniteWorld: true,
         terrainType: "perlin", // Options: "perlin", "flat", "procedural"
         terrainHeight: 70,
