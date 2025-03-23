@@ -964,7 +964,7 @@ class CannonPhysics {
             this.world = new CANNON.World();
             this.world.gravity.set(
                 this.config.gravity.x,
-                this.config.gravity.y * 0.5, // Reduced gravity to half
+                this.config.gravity.y,
                 this.config.gravity.z
             );
             
@@ -982,7 +982,7 @@ class CannonPhysics {
             const groundBody = new CANNON.Body({ 
                 mass: 0,
                 material: new CANNON.Material({
-                    friction: 0.1, // Reduced friction for ground
+                    friction: 0.05, 
                     restitution: 0.3
                 })
             }); // mass 0 = static

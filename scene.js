@@ -109,9 +109,13 @@ export class ChunkedScene {
                 position: new CANNON.Vec3(this.playerSphere.position.x, this.playerSphere.position.y, this.playerSphere.position.z),
                 shape: shape,
                 material: new CANNON.Material({
-                    friction: 0.1, 
-                    restitution: 0.5 
-                })
+                    friction: 0.01, // Reduced friction significantly
+                    restitution: 0.7  // Increased bounciness
+                }),
+                // Add angular damping to reduce excessive rotation
+                angularDamping: 0.1,
+                // Add linear damping to prevent it from moving forever
+                linearDamping: 0.1
             });
             
             // Store reference to visual object
@@ -310,19 +314,15 @@ export class ChunkedScene {
         // Set up mouse/touch drag controls
         this.canvas = document.getElementById('renderCanvas');
         
-        // Mouse events - using bind to ensure proper 'this' context
-        this.onDragStartBound = this.onDragStart.bind(this);
-        this.onDragMoveBound = this.onDragMove.bind(this);
-        this.onDragEndBound = this.onDragEnd.bind(this);
+        // Mouse events
+        this.canvas.addEventListener('mousedown', this.onDragStart.bind(this));
+        window.addEventListener('mousemove', this.onDragMove.bind(this));
+        window.addEventListener('mouseup', this.onDragEnd.bind(this));
         
-        this.canvas.addEventListener('mousedown', this.onDragStartBound);
-        window.addEventListener('mousemove', this.onDragMoveBound);
-        window.addEventListener('mouseup', this.onDragEndBound);
-        
-        // Touch events - using same bound functions
-        this.canvas.addEventListener('touchstart', this.onDragStartBound);
-        window.addEventListener('touchmove', this.onDragMoveBound);
-        window.addEventListener('touchend', this.onDragEndBound);
+        // Touch events
+        this.canvas.addEventListener('touchstart', this.onDragStart.bind(this));
+        window.addEventListener('touchmove', this.onDragMove.bind(this));
+        window.addEventListener('touchend', this.onDragEnd.bind(this));
     }
     
     // Handle drag start
@@ -595,8 +595,8 @@ export class ChunkedScene {
         const forward = cameraDirection.clone();
         const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0));
         
-        // Force strength
-        const forceStrength = 40 * (this.playerBody.mass / 5); 
+        // Force strength - increased by 2.5x
+        const forceStrength = 100 * (this.playerBody.mass / 5); 
         let forceVector = new CANNON.Vec3(0, 0, 0);
         
         // Apply forces based on keyboard input
@@ -625,10 +625,10 @@ export class ChunkedScene {
             
             // Only apply if drag amount is significant
             if (Math.abs(dragX) > 5 || Math.abs(dragY) > 5) {
-                // Convert screen drag to world direction
+                // Convert screen drag to world direction - force increased by 3x
                 // Negative dragY means drag up = move forward
-                forceVector.x += (forward.x * -dragY + right.x * dragX) * this.dragControls.forceMultiplier * 4; 
-                forceVector.z += (forward.z * -dragY + right.z * dragX) * this.dragControls.forceMultiplier * 4; 
+                forceVector.x += (forward.x * -dragY + right.x * dragX) * this.dragControls.forceMultiplier * 12; 
+                forceVector.z += (forward.z * -dragY + right.z * dragX) * this.dragControls.forceMultiplier * 12; 
                 
                 // Update start position for continuous dragging
                 this.dragControls.startX = this.dragControls.currentX;
@@ -1218,16 +1218,16 @@ export class ChunkedScene {
         this.chunks.clear();
         this.activeChunks.clear();
         
-        // Remove event listeners with proper bound functions
+        // Remove event listeners
         if (this.canvas) {
-            this.canvas.removeEventListener('mousedown', this.onDragStartBound);
-            this.canvas.removeEventListener('touchstart', this.onDragStartBound);
+            this.canvas.removeEventListener('mousedown', this.onDragStart);
+            this.canvas.removeEventListener('touchstart', this.onDragStart);
         }
         
-        window.removeEventListener('mousemove', this.onDragMoveBound);
-        window.removeEventListener('mouseup', this.onDragEndBound);
-        window.removeEventListener('touchmove', this.onDragMoveBound);
-        window.removeEventListener('touchend', this.onDragEndBound);
+        window.removeEventListener('mousemove', this.onDragMove);
+        window.removeEventListener('mouseup', this.onDragEnd);
+        window.removeEventListener('touchmove', this.onDragMove);
+        window.removeEventListener('touchend', this.onDragEnd);
         
         // Clean up renderer-specific resources
         if (this.engine.currentRenderingEngine === 'three.js') {
