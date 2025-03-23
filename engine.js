@@ -898,13 +898,19 @@ class CannonPhysics {
     
     async initialize() {
         try {
-            // Check if CANNON is defined
+            // First try to import Cannon-es as a module if window.CANNON is not defined
             if (typeof CANNON === 'undefined') {
-                // Try window.CANNON for legacy libraries
                 if (typeof window.CANNON !== 'undefined') {
+                    // If found in window object, use that
                     window.CANNON = window.CANNON;
                 } else {
-                    throw new Error('Cannon.js library not loaded properly');
+                    // Try dynamic import as a last resort
+                    try {
+                        window.CANNON = await import('cannon-es').then(module => module.default || module);
+                    } catch (importError) {
+                        console.warn("Failed to import cannon-es as a module:", importError);
+                        throw new Error('Cannon.js library not loaded properly');
+                    }
                 }
             }
             

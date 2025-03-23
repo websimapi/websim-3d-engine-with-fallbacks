@@ -69,8 +69,9 @@ export const libraries = {
         physics: "https://cdn.babylonjs.com/babylon.physics.min.js"
     },
     "cannon-es": [
-        "https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.min.js",
-        "https://unpkg.com/cannon-es@0.20.0/dist/cannon-es.min.js",
+        "https://unpkg.com/cannon-es@0.20.0/dist/cannon-es.js",
+        "https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.js", 
+        "https://cdn.skypack.dev/cannon-es@0.20.0",
         "https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"
     ],
     "ammo.js": "https://cdn.jsdelivr.net/npm/ammo.js@0.0.10/ammo.js",
