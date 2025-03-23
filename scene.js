@@ -3,6 +3,7 @@
  */
 import { config } from './config.js';
 import { MathUtils } from './utils.js';
+import { CharacterController } from './CharacterController.js';
 
 export class ChunkedScene {
     constructor(engine) {
