@@ -80,9 +80,6 @@ export class ChunkedScene {
         
         // Set up sunlight for day/night cycle
         this.setupDayNightCycle();
-        
-        // Add test objects to demonstrate shadows
-        this.addTestObjects();
     }
     
     // Setup day/night cycle lighting
@@ -112,6 +109,9 @@ export class ChunkedScene {
         this.moonLight = new THREE.AmbientLight(0x223344, 0.2);
         this.threeScene.add(this.moonLight);
         
+        // Add test objects to show shadows
+        this.addTestObjects();
+        
         // Initialize time of day
         this.timeOfDay = config.world.timeOfDay;
         this.dayLength = config.world.dayLength;
@@ -140,7 +140,7 @@ export class ChunkedScene {
                 -20
             );
             cube.castShadow = config.rendering.shadows;
-            cube.receiveShadow = true;
+            cube.receiveShadow = config.rendering.shadows;
             this.threeScene.add(cube);
         }
         
@@ -160,7 +160,7 @@ export class ChunkedScene {
                 20
             );
             sphere.castShadow = config.rendering.shadows;
-            sphere.receiveShadow = true;
+            sphere.receiveShadow = config.rendering.shadows;
             this.threeScene.add(sphere);
         }
     }

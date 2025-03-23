@@ -665,9 +665,10 @@ class ThreeRenderer {
                         obj.castShadow = settings.shadows;
                     }
                     
-                    // Also disable castShadow on all meshes when shadows are disabled
+                    // Also update meshes to stop casting/receiving shadows
                     if (obj.isMesh) {
                         obj.castShadow = settings.shadows;
+                        obj.receiveShadow = settings.shadows;
                     }
                 });
             }
