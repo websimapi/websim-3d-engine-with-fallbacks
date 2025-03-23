@@ -104,16 +104,14 @@ export class ChunkedScene {
         // Add physics for player sphere
         if (this.engine.activeEngines.physics && this.engine.activeEngines.physics.world) {
             const shape = new CANNON.Sphere(1);
-            const playerMaterial = new CANNON.Material({
-                friction: 0.1,     // Reduced friction
-                restitution: 0.3
-            });
-            
             this.playerBody = new CANNON.Body({
                 mass: 5,
                 position: new CANNON.Vec3(this.playerSphere.position.x, this.playerSphere.position.y, this.playerSphere.position.z),
                 shape: shape,
-                material: playerMaterial
+                material: new CANNON.Material({
+                    friction: 0.3,
+                    restitution: 0.3
+                })
             });
             
             // Store reference to visual object
@@ -238,6 +236,16 @@ export class ChunkedScene {
             jump: false
         };
         
+        // Mouse/touch drag controls
+        this.dragControls = {
+            isDragging: false,
+            startX: 0,
+            startY: 0,
+            currentX: 0,
+            currentY: 0,
+            forceMultiplier: 0.5
+        };
+        
         // Set up keyboard controls
         window.addEventListener('keydown', (e) => {
             switch(e.key.toLowerCase()) {
@@ -286,56 +294,51 @@ export class ChunkedScene {
                     break;
             }
         });
+        
+        // Set up mouse/touch drag controls
+        this.canvas = document.getElementById('renderCanvas');
+        
+        // Mouse events
+        this.canvas.addEventListener('mousedown', this.onDragStart.bind(this));
+        window.addEventListener('mousemove', this.onDragMove.bind(this));
+        window.addEventListener('mouseup', this.onDragEnd.bind(this));
+        
+        // Touch events
+        this.canvas.addEventListener('touchstart', this.onDragStart.bind(this));
+        window.addEventListener('touchmove', this.onDragMove.bind(this));
+        window.addEventListener('touchend', this.onDragEnd.bind(this));
     }
     
-    // Update player movement based on input
-    updatePlayerControls(deltaTime) {
-        if (!this.playerBody || !this.keys) return;
+    // Handle drag start
+    onDragStart(e) {
+        e.preventDefault();
+        this.dragControls.isDragging = true;
         
-        // Get camera direction for relative movement
-        const camera = this.engine.activeEngines.renderer.getCamera();
-        const cameraDirection = new THREE.Vector3();
-        camera.getWorldDirection(cameraDirection);
-        cameraDirection.y = 0; // Keep movement on ground plane
-        cameraDirection.normalize();
+        // Get client position for mouse or touch
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
         
-        // Calculate forward and right vectors
-        const forward = cameraDirection.clone();
-        const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0));
+        this.dragControls.startX = clientX;
+        this.dragControls.startY = clientY;
+        this.dragControls.currentX = clientX;
+        this.dragControls.currentY = clientY;
+    }
+    
+    // Handle drag move
+    onDragMove(e) {
+        if (!this.dragControls.isDragging) return;
         
-        // Force strength - increased for better responsiveness
-        const forceStrength = 40 * (this.playerBody.mass / 5); // Scale with mass
-        let forceVector = new CANNON.Vec3(0, 0, 0);
+        // Get client position for mouse or touch
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
         
-        // Apply forces based on input
-        if (this.keys.forward) {
-            forceVector.x += forward.x * forceStrength;
-            forceVector.z += forward.z * forceStrength;
-        }
-        if (this.keys.backward) {
-            forceVector.x -= forward.x * forceStrength;
-            forceVector.z -= forward.z * forceStrength;
-        }
-        if (this.keys.right) {
-            forceVector.x += right.x * forceStrength;
-            forceVector.z += right.z * forceStrength;
-        }
-        if (this.keys.left) {
-            forceVector.x -= right.x * forceStrength;
-            forceVector.z -= right.z * forceStrength;
-        }
-        
-        // Apply jump if space is pressed and player is near ground
-        if (this.keys.jump && Math.abs(this.playerBody.position.y - this.playerBody.shapes[0].radius - (-5)) < 0.5) {
-            forceVector.y = forceStrength * 10;
-        }
-        
-        // Apply the force
-        this.playerBody.applyForce(forceVector, this.playerBody.position);
-        
-        // Apply linear damping to control speed and reduce friction
-        this.playerBody.linearDamping = 0.3;
-        this.playerBody.angularDamping = 0.3;
+        this.dragControls.currentX = clientX;
+        this.dragControls.currentY = clientY;
+    }
+    
+    // Handle drag end
+    onDragEnd(e) {
+        this.dragControls.isDragging = false;
     }
     
     // Initialize for Babylon.js renderer
@@ -535,6 +538,71 @@ export class ChunkedScene {
         
         // Default camera position if none available
         return { x: 0, y: 0, z: 0 };
+    }
+    
+    // Update player movement based on input
+    updatePlayerControls(deltaTime) {
+        if (!this.playerBody || !this.keys) return;
+        
+        // Get camera direction for relative movement
+        const camera = this.engine.activeEngines.renderer.getCamera();
+        const cameraDirection = new THREE.Vector3();
+        camera.getWorldDirection(cameraDirection);
+        cameraDirection.y = 0; // Keep movement on ground plane
+        cameraDirection.normalize();
+        
+        // Calculate forward and right vectors
+        const forward = cameraDirection.clone();
+        const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0));
+        
+        // Force strength
+        const forceStrength = 20 * (this.playerBody.mass / 5); // Scale with mass
+        let forceVector = new CANNON.Vec3(0, 0, 0);
+        
+        // Apply forces based on keyboard input
+        if (this.keys.forward) {
+            forceVector.x += forward.x * forceStrength;
+            forceVector.z += forward.z * forceStrength;
+        }
+        if (this.keys.backward) {
+            forceVector.x -= forward.x * forceStrength;
+            forceVector.z -= forward.z * forceStrength;
+        }
+        if (this.keys.right) {
+            forceVector.x += right.x * forceStrength;
+            forceVector.z += right.z * forceStrength;
+        }
+        if (this.keys.left) {
+            forceVector.x -= right.x * forceStrength;
+            forceVector.z -= right.z * forceStrength;
+        }
+        
+        // Process drag input if active
+        if (this.dragControls && this.dragControls.isDragging) {
+            // Calculate drag direction
+            const dragX = this.dragControls.currentX - this.dragControls.startX;
+            const dragY = this.dragControls.currentY - this.dragControls.startY;
+            
+            // Only apply if drag amount is significant
+            if (Math.abs(dragX) > 5 || Math.abs(dragY) > 5) {
+                // Convert screen drag to world direction
+                // Negative dragY means drag up = move forward
+                forceVector.x += (forward.x * -dragY + right.x * dragX) * this.dragControls.forceMultiplier;
+                forceVector.z += (forward.z * -dragY + right.z * dragX) * this.dragControls.forceMultiplier;
+                
+                // Update start position for continuous dragging
+                this.dragControls.startX = this.dragControls.currentX;
+                this.dragControls.startY = this.dragControls.currentY;
+            }
+        }
+        
+        // Apply jump if space is pressed and player is near ground
+        if (this.keys.jump && Math.abs(this.playerBody.position.y - this.playerBody.shapes[0].radius - (-5)) < 0.5) {
+            forceVector.y = forceStrength * 10;
+        }
+        
+        // Apply the force
+        this.playerBody.applyForce(forceVector, this.playerBody.position);
     }
     
     // Check for objects that can be picked up
@@ -943,6 +1011,17 @@ export class ChunkedScene {
         
         this.chunks.clear();
         this.activeChunks.clear();
+        
+        // Remove event listeners
+        if (this.canvas) {
+            this.canvas.removeEventListener('mousedown', this.onDragStart);
+            this.canvas.removeEventListener('touchstart', this.onDragStart);
+        }
+        
+        window.removeEventListener('mousemove', this.onDragMove);
+        window.removeEventListener('mouseup', this.onDragEnd);
+        window.removeEventListener('touchmove', this.onDragMove);
+        window.removeEventListener('touchend', this.onDragEnd);
         
         // Clean up renderer-specific resources
         if (this.engine.currentRenderingEngine === 'three.js') {

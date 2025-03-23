@@ -17,6 +17,11 @@ body {
     width: 100%;
     height: 100%;
     touch-action: none;
+    cursor: grab;
+}
+
+#renderCanvas:active {
+    cursor: grabbing;
 }
 
 #loading-screen {
@@ -126,4 +131,3 @@ body {
 .hidden {
     display: none !important;
 }
-
