@@ -51,8 +51,16 @@ export class ChunkedScene {
         
         // Add a ground plane that extends far
         const groundGeometry = new THREE.PlaneGeometry(10000, 10000);
+        
+        // Load grass texture
+        const textureLoader = new THREE.TextureLoader();
+        const grassTexture = textureLoader.load('https://cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/textures/terrain/grasslight-big.jpg');
+        grassTexture.wrapS = THREE.RepeatWrapping;
+        grassTexture.wrapT = THREE.RepeatWrapping;
+        grassTexture.repeat.set(1000, 1000);
+        
         const groundMaterial = new THREE.MeshStandardMaterial({ 
-            color: 0x333333,
+            map: grassTexture,
             roughness: 0.8,
             metalness: 0.2
         });
@@ -63,26 +71,51 @@ export class ChunkedScene {
         ground.receiveShadow = true;
         
         this.threeScene.add(ground);
-
-        // Add a floating cube to demonstrate shadows
-        const cubeSize = 10;
-        const cubeGeometry = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
-        const cubeMaterial = new THREE.MeshStandardMaterial({
-            color: 0x1a75ff,
-            roughness: 0.5,
-            metalness: 0.3
-        });
-        const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
-        cube.position.set(0, 20, 0);
-        cube.castShadow = true;
-        cube.receiveShadow = true;
-        this.threeScene.add(cube);
         
         // Set background
         this.threeScene.background = new THREE.Color(0x87ceeb); // Sky blue
         
         // Add fog
         this.threeScene.fog = new THREE.FogExp2(0xcccccc, 0.002);
+        
+        // Set up sunlight for day/night cycle
+        this.setupDayNightCycle();
+    }
+    
+    // Setup day/night cycle lighting
+    setupDayNightCycle() {
+        // Create hemisphere light (sky and ground)
+        this.hemisphereLight = new THREE.HemisphereLight(0x87ceeb, 0x3a3a3a, 0.6);
+        this.threeScene.add(this.hemisphereLight);
+        
+        // Create directional light (sun)
+        this.sunLight = new THREE.DirectionalLight(0xffffee, 1.5);
+        this.sunLight.position.set(100, 100, 50);
+        this.sunLight.castShadow = true;
+        
+        // Improve shadow quality
+        this.sunLight.shadow.mapSize.width = 2048;
+        this.sunLight.shadow.mapSize.height = 2048;
+        this.sunLight.shadow.camera.near = 0.5;
+        this.sunLight.shadow.camera.far = 500;
+        this.sunLight.shadow.camera.left = -100;
+        this.sunLight.shadow.camera.right = 100;
+        this.sunLight.shadow.camera.top = 100;
+        this.sunLight.shadow.camera.bottom = -100;
+        
+        this.threeScene.add(this.sunLight);
+        
+        // Add ambient moonlight for night
+        this.moonLight = new THREE.AmbientLight(0x223344, 0.2);
+        this.threeScene.add(this.moonLight);
+        
+        // Initialize time of day
+        this.timeOfDay = config.world.timeOfDay;
+        this.dayLength = config.world.dayLength;
+        this.lastUpdate = Date.now();
+        
+        // Update lighting based on current time
+        this.updateDayNightCycle(0);
     }
     
     // Initialize for Babylon.js renderer
@@ -108,13 +141,6 @@ export class ChunkedScene {
         ground.position.y = -5;
         ground.receiveShadows = true;
         
-        // Add a floating cube to demonstrate shadows
-        const cube = BABYLON.MeshBuilder.CreateBox('shadowCube', {size: 10}, this.babylonScene);
-        cube.position.y = 20;
-        const cubeMaterial = new BABYLON.StandardMaterial('cubeMaterial', this.babylonScene);
-        cubeMaterial.diffuseColor = new BABYLON.Color3(0.1, 0.45, 1.0); // Blue color
-        cube.material = cubeMaterial;
-        
         // Set skybox
         const skybox = BABYLON.MeshBuilder.CreateBox('skyBox', { size: 1000 }, this.babylonScene);
         const skyboxMaterial = new BABYLON.StandardMaterial('skyBoxMaterial', this.babylonScene);
@@ -136,6 +162,11 @@ export class ChunkedScene {
     
     // Main update method called each frame
     update(deltaTime) {
+        // Update day/night cycle
+        if (config.world.dayNightCycle && this.threeScene) {
+            this.updateDayNightCycle(deltaTime);
+        }
+        
         // Get current camera position
         const cameraPosition = this.getCameraPosition();
         
@@ -149,6 +180,68 @@ export class ChunkedScene {
             this.lastCameraChunkX = chunkX;
             this.lastCameraChunkZ = chunkZ;
         }
+    }
+    
+    // Update day/night cycle lighting
+    updateDayNightCycle(deltaTime) {
+        if (!this.sunLight || !this.hemisphereLight) return;
+        
+        // Update time of day
+        if (config.world.dayNightCycle) {
+            this.timeOfDay += deltaTime / this.dayLength;
+            if (this.timeOfDay > 1) this.timeOfDay -= 1;
+        }
+        
+        // Calculate sun position
+        const angle = Math.PI * 2 * this.timeOfDay;
+        const sunHeight = Math.sin(angle);
+        const sunX = Math.cos(angle) * 100;
+        const sunY = sunHeight * 100 + 10; // Keep sun slightly above horizon at night
+        
+        // Position sun
+        this.sunLight.position.set(sunX, sunY, 50);
+        
+        // Adjust light intensity based on time of day
+        let sunIntensity, ambientIntensity;
+        
+        if (sunHeight > 0) {
+            // Day time
+            sunIntensity = Math.max(0.1, sunHeight * 1.5);
+            ambientIntensity = sunHeight * 0.5;
+            this.moonLight.intensity = 0;
+            
+            // Change sky color
+            let skyHue = 0.6; // Blue
+            let skySaturation = 0.7;
+            let skyLightness = 0.7 + (0.3 * sunHeight);
+            
+            this.threeScene.background = new THREE.Color().setHSL(skyHue, skySaturation, skyLightness);
+            this.threeScene.fog.color.setHSL(skyHue, skySaturation, skyLightness);
+            
+            // Warm up hemisphere light at sunrise/sunset
+            if (sunHeight < 0.2) {
+                // Sunrise/sunset - orange tint
+                const blendFactor = 1 - (sunHeight / 0.2);
+                this.hemisphereLight.color.setHSL(0.1, 0.7, 0.5 + (0.5 * sunHeight)); // Orange sky
+            } else {
+                this.hemisphereLight.color.setHSL(0.6, 0.8, 0.8); // Blue sky
+            }
+        } else {
+            // Night time
+            sunIntensity = 0;
+            ambientIntensity = 0;
+            this.moonLight.intensity = 0.2;
+            
+            // Dark blue night sky
+            this.threeScene.background = new THREE.Color().setHSL(0.7, 0.8, Math.max(0.1, 0.1 + sunHeight));
+            this.threeScene.fog.color.setHSL(0.7, 0.8, Math.max(0.1, 0.1 + sunHeight));
+            
+            // Night hemisphere
+            this.hemisphereLight.color.setHSL(0.7, 0.8, 0.1);
+        }
+        
+        this.sunLight.intensity = sunIntensity;
+        this.hemisphereLight.intensity = 0.6 + (ambientIntensity * 0.4);
     }
     
     // Get current camera position
@@ -330,18 +423,21 @@ export class ChunkedScene {
             if (height < 0) {
                 // Water - blue
                 color = new THREE.Color(0x0077be);
-            } else if (height < 5) {
+            } else if (height < 3) {
                 // Sand - tan
                 color = new THREE.Color(0xc2b280);
-            } else if (height < 15) {
+            } else if (height < 12) {
                 // Grass - green
                 color = new THREE.Color(0x567d46);
-            } else if (height < 40) {
+            } else if (height < 35) {
                 // Forest - dark green
                 color = new THREE.Color(0x2d4c1e);
+            } else if (height < 60) {
+                // Mountain - gray brown
+                color = new THREE.Color(0x7d6b5d);
             } else {
-                // Mountain - gray
-                color = new THREE.Color(0x808080);
+                // Snow peaks - white
+                color = new THREE.Color(0xeeeeee);
             }
             
             // Set RGB values

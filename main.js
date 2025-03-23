@@ -161,6 +161,26 @@ class Application {
                     }
                 });
                 
+                worldFolder.addInput(config.world, 'dayNightCycle').on('change', () => {
+                    // Toggle day/night cycle
+                });
+                
+                worldFolder.addInput(config.world, 'dayLength', {
+                    min: 60,  // 1 minute
+                    max: 600, // 10 minutes
+                    step: 30
+                });
+                
+                worldFolder.addInput(config.world, 'timeOfDay', {
+                    min: 0, 
+                    max: 1,
+                    step: 0.01
+                }).on('change', () => {
+                    if (this.engine && this.engine.scene) {
+                        this.engine.scene.timeOfDay = config.world.timeOfDay;
+                    }
+                });
+                
                 worldFolder.addButton({
                     title: 'Regenerate World'
                 }).on('click', () => {
