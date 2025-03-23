@@ -91,7 +91,7 @@ export class ChunkedScene {
         // Create directional light (sun)
         this.sunLight = new THREE.DirectionalLight(0xffffee, 1.5);
         this.sunLight.position.set(100, 100, 50);
-        this.sunLight.castShadow = true;
+        this.sunLight.castShadow = config.rendering.shadows;
         
         // Improve shadow quality
         this.sunLight.shadow.mapSize.width = 2048;
@@ -109,6 +109,9 @@ export class ChunkedScene {
         this.moonLight = new THREE.AmbientLight(0x223344, 0.2);
         this.threeScene.add(this.moonLight);
         
+        // Add test objects to show shadows
+        this.addTestObjects();
+        
         // Initialize time of day
         this.timeOfDay = config.world.timeOfDay;
         this.dayLength = config.world.dayLength;
@@ -116,6 +119,50 @@ export class ChunkedScene {
         
         // Update lighting based on current time
         this.updateDayNightCycle(0);
+    }
+    
+    // Add test objects to demonstrate shadows
+    addTestObjects() {
+        // Add some cubes and spheres to cast shadows
+        const geometry = new THREE.BoxGeometry(10, 10, 10);
+        const material = new THREE.MeshStandardMaterial({
+            color: 0x8844aa,
+            roughness: 0.7,
+            metalness: 0.2
+        });
+        
+        // Create a few test cubes
+        for (let i = 0; i < 5; i++) {
+            const cube = new THREE.Mesh(geometry, material);
+            cube.position.set(
+                (i * 20) - 40,
+                15,
+                -20
+            );
+            cube.castShadow = true;
+            cube.receiveShadow = true;
+            this.threeScene.add(cube);
+        }
+        
+        // Add a few spheres
+        const sphereGeometry = new THREE.SphereGeometry(7, 32, 32);
+        const sphereMaterial = new THREE.MeshStandardMaterial({
+            color: 0x44aa88,
+            roughness: 0.5,
+            metalness: 0.3
+        });
+        
+        for (let i = 0; i < 3; i++) {
+            const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+            sphere.position.set(
+                (i * 25) - 25,
+                10,
+                20
+            );
+            sphere.castShadow = true;
+            sphere.receiveShadow = true;
+            this.threeScene.add(sphere);
+        }
     }
     
     // Initialize for Babylon.js renderer

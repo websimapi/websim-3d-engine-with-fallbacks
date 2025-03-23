@@ -657,7 +657,11 @@ class ThreeRenderer {
             // Update all lights
             if (this.scene) {
                 this.scene.traverse(obj => {
-                    if (obj.isLight) {
+                    // Only set castShadow on lights that support shadows (DirectionalLight, SpotLight, PointLight)
+                    if (obj.isLight && 
+                        (obj.type === 'DirectionalLight' || 
+                         obj.type === 'SpotLight' || 
+                         obj.type === 'PointLight')) {
                         obj.castShadow = settings.shadows;
                     }
                 });
