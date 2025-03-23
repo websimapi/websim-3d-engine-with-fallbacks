@@ -259,7 +259,8 @@ export class ChunkedScene {
             startY: 0,
             currentX: 0,
             currentY: 0,
-            forceMultiplier: 2
+            forceMultiplier: 2,
+            dragDuration: 0 // Track how long the drag has been happening
         };
         
         // Set up keyboard controls
@@ -595,8 +596,9 @@ export class ChunkedScene {
         const forward = cameraDirection.clone();
         const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0));
         
-        // Force strength - increased by 2.5x
-        const forceStrength = 100 * (this.playerBody.mass / 5); 
+        // Force strength - scale based on ball mass but with a more gradual increase
+        // Reduced base force strength to allow for better acceleration control
+        const forceStrength = 40 * (this.playerBody.mass / 5); 
         let forceVector = new CANNON.Vec3(0, 0, 0);
         
         // Apply forces based on keyboard input
@@ -625,14 +627,26 @@ export class ChunkedScene {
             
             // Only apply if drag amount is significant
             if (Math.abs(dragX) > 5 || Math.abs(dragY) > 5) {
-                // Convert screen drag to world direction - force increased by 3x
-                // Negative dragY means drag up = move forward
-                forceVector.x += (forward.x * -dragY + right.x * dragX) * this.dragControls.forceMultiplier * 12; 
-                forceVector.z += (forward.z * -dragY + right.z * dragX) * this.dragControls.forceMultiplier * 12; 
+                // Increase force gradually over time for more natural acceleration
+                // Start with a lower multiplier that increases with continued dragging
+                const dragDuration = this.dragControls.dragDuration || 0;
+                this.dragControls.dragDuration = dragDuration + deltaTime;
+                
+                // Acceleration factor - increases with drag duration but caps at a maximum
+                const accelFactor = Math.min(1.0, this.dragControls.dragDuration * 0.5);
+                
+                // Convert screen drag to world direction - reduced base multiplier
+                forceVector.x += (forward.x * -dragY + right.x * dragX) * this.dragControls.forceMultiplier * 5 * accelFactor; 
+                forceVector.z += (forward.z * -dragY + right.z * dragX) * this.dragControls.forceMultiplier * 5 * accelFactor;
                 
                 // Update start position for continuous dragging
                 this.dragControls.startX = this.dragControls.currentX;
                 this.dragControls.startY = this.dragControls.currentY;
+            }
+        } else {
+            // Reset drag duration when not dragging
+            if (this.dragControls) {
+                this.dragControls.dragDuration = 0;
             }
         }
         
