@@ -127,8 +127,114 @@ export class ChunkedScene {
         // Create small objects that can be picked up
         this.pickupObjects = [];
         
+        // Create initial objects in the spawn chunk
+        this.createInitialPickupObjects();
+        
         // Set up controls for the ball
         this.setupKatamariControls();
+    }
+
+    // Create initial pickup objects in the spawn chunk
+    createInitialPickupObjects() {
+        if (!this.threeScene) return;
+        
+        const objectShapes = [
+            { 
+                geometry: new THREE.BoxGeometry(0.5, 0.5, 0.5),
+                mass: 0.5,
+                count: 5,
+                createShape: size => new CANNON.Box(new CANNON.Vec3(size/2, size/2, size/2)),
+                color: 0xff4444
+            },
+            { 
+                geometry: new THREE.SphereGeometry(0.3, 16, 16),
+                mass: 0.3,
+                count: 5,
+                createShape: radius => new CANNON.Sphere(radius),
+                color: 0x44ff44
+            },
+            { 
+                geometry: new THREE.ConeGeometry(0.3, 0.6, 16),
+                mass: 0.4,
+                count: 3,
+                createShape: size => new CANNON.Cylinder(0, size, size*2, 8),
+                color: 0x4444ff
+            }
+        ];
+        
+        // Spawn area around the player
+        const spawnRadius = 20;
+        
+        objectShapes.forEach(objectType => {
+            for (let i = 0; i < objectType.count; i++) {
+                const material = new THREE.MeshStandardMaterial({
+                    color: objectType.color,
+                    roughness: 0.7,
+                    metalness: 0.2
+                });
+                
+                const mesh = new THREE.Mesh(objectType.geometry, material);
+                
+                // Position around the player in a circle
+                const angle = Math.random() * Math.PI * 2;
+                const distance = Math.random() * spawnRadius;
+                const x = Math.cos(angle) * distance;
+                const z = Math.sin(angle) * distance;
+                
+                // Get terrain height at this position for proper placement
+                const terrainHeight = this.getTerrainHeight(x, z);
+                
+                mesh.position.set(
+                    x,
+                    Math.max(terrainHeight, 0) + 3 + Math.random() * 2, // Place a bit above terrain
+                    z
+                );
+                
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
+                this.threeScene.add(mesh);
+                
+                // Add physics
+                if (this.engine.activeEngines.physics && this.engine.activeEngines.physics.world) {
+                    let size;
+                    let shape;
+                    
+                    if (objectType.geometry.type.includes('Sphere')) {
+                        size = objectType.geometry.parameters.radius;
+                        shape = objectType.createShape(size);
+                    } else if (objectType.geometry.type.includes('Box')) {
+                        size = objectType.geometry.parameters.width;
+                        shape = objectType.createShape(size);
+                    } else if (objectType.geometry.type.includes('Cone')) {
+                        size = objectType.geometry.parameters.radius;
+                        shape = objectType.createShape(size);
+                    }
+                    
+                    const body = new CANNON.Body({
+                        mass: objectType.mass,
+                        position: new CANNON.Vec3(mesh.position.x, mesh.position.y, mesh.position.z),
+                        shape: shape
+                    });
+                    
+                    // Store reference to visual object
+                    body.userData = { 
+                        visual: mesh,
+                        isPickup: true,
+                        originalMass: objectType.mass,
+                        size: size
+                    };
+                    
+                    this.engine.activeEngines.physics.world.addBody(body);
+                    this.engine.activeEngines.physics.bodies.push(body);
+                    
+                    // Store reference to physics body
+                    mesh.userData = { physicsBody: body };
+                    
+                    // Add to our pickup objects array
+                    this.pickupObjects.push({ mesh, body });
+                }
+            }
+        });
     }
 
     // Setup controls for moving the Katamari ball
@@ -232,7 +338,7 @@ export class ChunkedScene {
     
     // Handle drag move
     onDragMove(e) {
-        if (!this.dragControls.isDragging) return;
+        if (!this.dragControls || !this.dragControls.isDragging) return;
         
         // Get client position for mouse or touch
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
@@ -865,7 +971,9 @@ export class ChunkedScene {
             if (!object.body || !object.mesh) continue;
             
             // Skip objects that are attached to the player
-            if (object.body.userData && object.body.userData.isAttached) continue;
+            if (object.body.userData && object.body.userData.isAttached) {
+                continue;
+            }
             
             const posX = object.body.position.x;
             const posZ = object.body.position.z;
@@ -874,7 +982,7 @@ export class ChunkedScene {
             if (posX >= minX && posX < maxX && posZ >= minZ && posZ < maxZ) {
                 // Remove from scene
                 this.threeScene.remove(object.mesh);
-                
+
                 // Dispose geometry and materials
                 if (object.mesh.geometry) object.mesh.geometry.dispose();
                 if (object.mesh.material) {
