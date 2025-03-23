@@ -428,7 +428,7 @@ export class ChunkedScene {
     createThreeChunk(chunkX, chunkZ, worldX, worldZ) {
         try {
             // Simple terrain heightmap
-            const resolution = Math.max(16, this.chunkSize / 4); // Points per side
+            const resolution = Math.max(32, this.chunkSize / 3); // Higher resolution for better terrain
             const geometry = new THREE.PlaneGeometry(
                 this.chunkSize, 
                 this.chunkSize, 
@@ -448,12 +448,12 @@ export class ChunkedScene {
                 vertices[i+1] = noiseValue;
             }
             
-            // Update normals
+            // Update normals for better lighting
             geometry.computeVertexNormals();
             
             // Create material with color based on height
             const material = new THREE.MeshStandardMaterial({ 
-                vertexColors: false,
+                vertexColors: true,  // Enable vertex colors
                 roughness: 0.8,
                 metalness: 0.2
             });
@@ -488,26 +488,26 @@ export class ChunkedScene {
         for (let i = 0; i < vertices.length; i += 3) {
             const height = vertices[i+1];
             
-            // Generate color based on height
+            // Generate color based on height - adjusted for more natural colors
             let color;
             if (height < 0) {
-                // Water - blue
-                color = new THREE.Color(0x0077be);
+                // Water - deeper blue
+                color = new THREE.Color(0x0055aa);
             } else if (height < 3) {
-                // Sand - tan
-                color = new THREE.Color(0xc2b280);
-            } else if (height < 12) {
-                // Grass - green
-                color = new THREE.Color(0x567d46);
-            } else if (height < 35) {
-                // Forest - dark green
-                color = new THREE.Color(0x2d4c1e);
-            } else if (height < 60) {
+                // Sand - warmer tan
+                color = new THREE.Color(0xdbc380);
+            } else if (height < 15) {
+                // Grass - more vibrant green
+                color = new THREE.Color(0x63a735);
+            } else if (height < 30) {
+                // Forest - richer dark green
+                color = new THREE.Color(0x2d5e1e);
+            } else if (height < 50) {
                 // Mountain - gray brown
-                color = new THREE.Color(0x7d6b5d);
+                color = new THREE.Color(0x8d7b6d);
             } else {
-                // Snow peaks - white
-                color = new THREE.Color(0xeeeeee);
+                // Snow peaks - slightly blue-tinted white
+                color = new THREE.Color(0xeef0ff);
             }
             
             // Set RGB values

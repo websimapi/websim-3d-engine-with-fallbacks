@@ -44,9 +44,9 @@ export const config = {
 
     // Character settings
     character: {
-        moveSpeed: 10,
-        rotationSpeed: 10,
-        cameraOffset: { x: 0, y: 20, z: 40 },
+        moveSpeed: 8, // Slightly reduced for better control
+        rotationSpeed: 8,
+        cameraOffset: { x: 0, y: 25, z: 50 }, // Adjusted camera height and distance
         animationSpeed: 1.0
     },
 
@@ -55,7 +55,7 @@ export const config = {
         seed: Math.random() * 10000 | 0,
         infiniteWorld: true,
         terrainType: "perlin", // Options: "perlin", "flat", "procedural"
-        terrainHeight: 70,
+        terrainHeight: 50, // Adjusted for less extreme terrain
         terrainScale: 0.005,
         dayNightCycle: true,    // Enable day/night cycle
         dayLength: 300,         // Day length in seconds

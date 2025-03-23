@@ -100,9 +100,15 @@ export class CharacterController {
             // Add to scene
             this.scene.threeScene.add(this.mesh);
             
-            // Set initial position
-            this.position = { x: 0, y: 0, z: 0 };
+            // Set initial position (changed from 0,0,0 to a different spot)
+            this.position = { x: 50, y: 0, z: 30 };
             this.targetPosition = { ...this.position };
+            
+            // Get initial terrain height at this position
+            if (this.scene.getTerrainHeight) {
+                this.position.y = this.scene.getTerrainHeight(this.position.x, this.position.z);
+            }
+            
             this.updatePosition();
         } catch (error) {
             console.error('Error loading character model:', error);
@@ -202,12 +208,16 @@ export class CharacterController {
                 const moveStepX = this.moveSpeed * deltaTime * Math.sin(this.currentRotation);
                 const moveStepZ = this.moveSpeed * deltaTime * Math.cos(this.currentRotation);
                 
-                this.position.x += moveStepX;
-                this.position.z += moveStepZ;
+                // Apply movement
+                const newX = this.position.x + moveStepX;
+                const newZ = this.position.z + moveStepZ;
                 
-                // Sample terrain height at current position
+                // Sample terrain height at new position
                 if (this.scene.getTerrainHeight) {
-                    const terrainHeight = this.scene.getTerrainHeight(this.position.x, this.position.z);
+                    this.position.x = newX;
+                    this.position.z = newZ;
+                    // Apply gravity and terrain following
+                    const terrainHeight = this.scene.getTerrainHeight(newX, newZ);
                     this.position.y = terrainHeight;
                 }
             } else {
@@ -218,6 +228,15 @@ export class CharacterController {
             
             // Update position
             this.updatePosition();
+        } else {
+            // Even when not moving, ensure character is on the terrain
+            if (this.scene.getTerrainHeight) {
+                const terrainHeight = this.scene.getTerrainHeight(this.position.x, this.position.z);
+                if (Math.abs(this.position.y - terrainHeight) > 0.1) {
+                    this.position.y = terrainHeight;
+                    this.updatePosition();
+                }
+            }
         }
         
         // Update camera to follow character
