@@ -59,16 +59,15 @@ export const fallbacks = {
 // Library CDN paths
 export const libraries = {
     "three.js": [
-        "https://cdnjs.cloudflare.com/ajax/libs/three.js/r160/three.min.js",
-        "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js",
-        "https://unpkg.com/three@0.160.0/build/three.min.js",
-        "https://esm.sh/three@0.160.0/build/three.min.js"
+        "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "https://esm.sh/three@0.160.0/build/three.module.js"
     ],
     "babylon.js": {
         core: "https://cdn.babylonjs.com/babylon.js",
         physics: "https://cdn.babylonjs.com/babylon.physics.min.js"
     },
-    "cannon-es": "https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.min.js",
+    "cannon-es": "./cannon.min.js",
     "ammo.js": "https://cdn.jsdelivr.net/npm/ammo.js@0.0.10/ammo.js",
     "physx": "https://cdn.jsdelivr.net/npm/@dimforge/physx@0.2.2/physx.js",
     "rapier": "https://cdn.jsdelivr.net/npm/@dimforge/rapier3d@0.11.2/rapier.min.js",

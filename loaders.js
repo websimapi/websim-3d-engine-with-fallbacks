@@ -85,13 +85,16 @@ export class ResourceManager {
             });
         }
         
-        // Add physics engine library (skip cannon-es as we're using local file)
+        // Add physics engine library 
+        // Skip cannon-es loading since we're using local file via import map
         if (physicsEngine === 'ammo.js') {
             librariesToLoad.push({
                 name: 'ammo.js',
                 url: libraries['ammo.js']
             });
-        } else if (physicsEngine === 'physx') {
+        } 
+        // Add physics engine library (skip cannon-es as we're using local file)
+        else if (physicsEngine === 'physx') {
             librariesToLoad.push({
                 name: 'physx',
                 url: libraries['physx']
