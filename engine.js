@@ -985,10 +985,24 @@ class CannonPhysics {
             groundBody.position.set(0, -5, 0); // match the visual ground position
             this.world.addBody(groundBody);
             
+            // Add contact event listener for collision detection
+            this.world.addEventListener('beginContact', this.onBeginContact.bind(this));
+            
             return true;
         } catch (error) {
             console.error('Failed to initialize Cannon.js physics:', error);
             throw error;
+        }
+    }
+    
+    // Handle collision events
+    onBeginContact(event) {
+        // Collision event handling
+        const bodyA = event.bodyA;
+        const bodyB = event.bodyB;
+        
+        if (bodyA && bodyB) {
+            // Handle collision sound or special effects here if needed
         }
     }
     

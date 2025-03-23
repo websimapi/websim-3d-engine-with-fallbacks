@@ -80,127 +80,210 @@ export class ChunkedScene {
         
         // Set up sunlight for day/night cycle
         this.setupDayNightCycle();
+        
+        // Create player sphere and small objects
+        this.createKatamariScene();
     }
     
-    // Setup day/night cycle lighting
-    setupDayNightCycle() {
-        // Create hemisphere light (sky and ground)
-        this.hemisphereLight = new THREE.HemisphereLight(0x87ceeb, 0x3a3a3a, 0.6);
-        this.threeScene.add(this.hemisphereLight);
-        
-        // Create directional light (sun)
-        this.sunLight = new THREE.DirectionalLight(0xffffee, 1.5);
-        this.sunLight.position.set(100, 100, 50);
-        this.sunLight.castShadow = config.rendering.shadows;
-        
-        // Improve shadow quality
-        this.sunLight.shadow.mapSize.width = 2048;
-        this.sunLight.shadow.mapSize.height = 2048;
-        this.sunLight.shadow.camera.near = 0.5;
-        this.sunLight.shadow.camera.far = 500;
-        this.sunLight.shadow.camera.left = -100;
-        this.sunLight.shadow.camera.right = 100;
-        this.sunLight.shadow.camera.top = 100;
-        this.sunLight.shadow.camera.bottom = -100;
-        
-        this.threeScene.add(this.sunLight);
-        
-        // Add ambient moonlight for night
-        this.moonLight = new THREE.AmbientLight(0x223344, 0.2);
-        this.threeScene.add(this.moonLight);
-        
-        // Add test objects to show shadows
-        this.addTestObjects();
-        
-        // Initialize time of day
-        this.timeOfDay = config.world.timeOfDay;
-        this.dayLength = config.world.dayLength;
-        this.lastUpdate = Date.now();
-        
-        // Update lighting based on current time
-        this.updateDayNightCycle(0);
-    }
-    
-    // Add test objects to demonstrate shadows
-    addTestObjects() {
-        // Add some cubes and spheres to cast shadows
-        const geometry = new THREE.BoxGeometry(10, 10, 10);
-        const material = new THREE.MeshStandardMaterial({
-            color: 0x8844aa,
-            roughness: 0.7,
-            metalness: 0.2
-        });
-        
-        // Create a few test cubes
-        for (let i = 0; i < 5; i++) {
-            const cube = new THREE.Mesh(geometry, material);
-            cube.position.set(
-                (i * 20) - 40,
-                15 + (i * 10), // staggered height for more interesting physics
-                -20
-            );
-            cube.castShadow = true;
-            cube.receiveShadow = true;
-            this.threeScene.add(cube);
-            
-            // Add physics if available
-            if (this.engine.activeEngines.physics && this.engine.activeEngines.physics.world) {
-                const shape = new CANNON.Box(new CANNON.Vec3(5, 5, 5));
-                const body = new CANNON.Body({
-                    mass: 1,
-                    position: new CANNON.Vec3(cube.position.x, cube.position.y, cube.position.z),
-                    shape: shape
-                });
-                
-                // Store reference to visual object
-                body.userData = { visual: cube };
-                
-                this.engine.activeEngines.physics.world.addBody(body);
-                this.engine.activeEngines.physics.bodies.push(body);
-                
-                // Store reference to physics body
-                cube.userData = { physicsBody: body };
-            }
-        }
-        
-        // Add a few spheres
-        const sphereGeometry = new THREE.SphereGeometry(7, 32, 32);
+    // Create Katamari-like gameplay elements
+    createKatamariScene() {
+        // Create player sphere (Katamari)
+        const sphereGeometry = new THREE.SphereGeometry(1, 32, 32);
         const sphereMaterial = new THREE.MeshStandardMaterial({
             color: 0x44aa88,
             roughness: 0.5,
             metalness: 0.3
         });
         
-        for (let i = 0; i < 3; i++) {
-            const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-            sphere.position.set(
-                (i * 25) - 25,
-                30 + (i * 15), // staggered height for more interesting physics
-                20
-            );
-            sphere.castShadow = true;
-            sphere.receiveShadow = true;
-            this.threeScene.add(sphere);
+        this.playerSphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+        this.playerSphere.position.set(0, 5, 0);
+        this.playerSphere.castShadow = true;
+        this.playerSphere.receiveShadow = true;
+        this.threeScene.add(this.playerSphere);
+        
+        // Add physics for player sphere
+        if (this.engine.activeEngines.physics && this.engine.activeEngines.physics.world) {
+            const shape = new CANNON.Sphere(1);
+            this.playerBody = new CANNON.Body({
+                mass: 5,
+                position: new CANNON.Vec3(this.playerSphere.position.x, this.playerSphere.position.y, this.playerSphere.position.z),
+                shape: shape,
+                material: new CANNON.Material({
+                    friction: 0.3,
+                    restitution: 0.3
+                })
+            });
             
-            // Add physics if available
-            if (this.engine.activeEngines.physics && this.engine.activeEngines.physics.world) {
-                const shape = new CANNON.Sphere(7);
-                const body = new CANNON.Body({
-                    mass: 1,
-                    position: new CANNON.Vec3(sphere.position.x, sphere.position.y, sphere.position.z),
-                    shape: shape
+            // Store reference to visual object
+            this.playerBody.userData = { visual: this.playerSphere };
+            
+            this.engine.activeEngines.physics.world.addBody(this.playerBody);
+            this.engine.activeEngines.physics.bodies.push(this.playerBody);
+            
+            // Store reference to physics body
+            this.playerSphere.userData = { physicsBody: this.playerBody };
+        }
+        
+        // Create small objects that can be picked up
+        this.pickupObjects = [];
+        this.createPickupObjects();
+        
+        // Set up controls for the ball
+        this.setupKatamariControls();
+    }
+    
+    // Create various sized objects to pick up
+    createPickupObjects() {
+        const objectShapes = [
+            { 
+                geometry: new THREE.BoxGeometry(0.5, 0.5, 0.5),
+                mass: 0.5,
+                count: 20,
+                createShape: size => new CANNON.Box(new CANNON.Vec3(size/2, size/2, size/2)),
+                color: 0xff4444
+            },
+            { 
+                geometry: new THREE.SphereGeometry(0.3, 16, 16),
+                mass: 0.3,
+                count: 15,
+                createShape: radius => new CANNON.Sphere(radius),
+                color: 0x44ff44
+            },
+            { 
+                geometry: new THREE.ConeGeometry(0.3, 0.6, 16),
+                mass: 0.4,
+                count: 10,
+                createShape: size => new CANNON.Cylinder(0, size, size*2, 8),
+                color: 0x4444ff
+            }
+        ];
+        
+        objectShapes.forEach(objectType => {
+            for (let i = 0; i < objectType.count; i++) {
+                const material = new THREE.MeshStandardMaterial({
+                    color: objectType.color,
+                    roughness: 0.7,
+                    metalness: 0.2
                 });
                 
-                // Store reference to visual object
-                body.userData = { visual: sphere };
+                const mesh = new THREE.Mesh(objectType.geometry, material);
                 
-                this.engine.activeEngines.physics.world.addBody(body);
-                this.engine.activeEngines.physics.bodies.push(body);
+                // Random position - spread objects around
+                const angle = Math.random() * Math.PI * 2;
+                const distance = 5 + Math.random() * 30;
                 
-                // Store reference to physics body
-                sphere.userData = { physicsBody: body };
+                mesh.position.set(
+                    Math.cos(angle) * distance,
+                    0.5 + Math.random() * 4,
+                    Math.sin(angle) * distance
+                );
+                
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
+                this.threeScene.add(mesh);
+                
+                // Add physics
+                if (this.engine.activeEngines.physics && this.engine.activeEngines.physics.world) {
+                    let size;
+                    let shape;
+                    
+                    if (objectType.geometry.type.includes('Sphere')) {
+                        size = objectType.geometry.parameters.radius;
+                        shape = objectType.createShape(size);
+                    } else if (objectType.geometry.type.includes('Box')) {
+                        size = objectType.geometry.parameters.width;
+                        shape = objectType.createShape(size);
+                    } else if (objectType.geometry.type.includes('Cone')) {
+                        size = objectType.geometry.parameters.radius;
+                        shape = objectType.createShape(size);
+                    }
+                    
+                    const body = new CANNON.Body({
+                        mass: objectType.mass,
+                        position: new CANNON.Vec3(mesh.position.x, mesh.position.y, mesh.position.z),
+                        shape: shape
+                    });
+                    
+                    // Store reference to visual object
+                    body.userData = { 
+                        visual: mesh,
+                        isPickup: true,
+                        originalMass: objectType.mass,
+                        size: size
+                    };
+                    
+                    this.engine.activeEngines.physics.world.addBody(body);
+                    this.engine.activeEngines.physics.bodies.push(body);
+                    
+                    // Store reference to physics body
+                    mesh.userData = { physicsBody: body };
+                    
+                    // Add to our pickup objects array
+                    this.pickupObjects.push({ mesh, body });
+                }
             }
-        }
+        });
+    }
+    
+    // Setup controls for moving the Katamari ball
+    setupKatamariControls() {
+        // Input state
+        this.keys = {
+            forward: false,
+            backward: false,
+            left: false,
+            right: false,
+            jump: false
+        };
+        
+        // Set up keyboard controls
+        window.addEventListener('keydown', (e) => {
+            switch(e.key.toLowerCase()) {
+                case 'w':
+                case 'arrowup':
+                    this.keys.forward = true;
+                    break;
+                case 's':
+                case 'arrowdown':
+                    this.keys.backward = true;
+                    break;
+                case 'a':
+                case 'arrowleft':
+                    this.keys.left = true;
+                    break;
+                case 'd':
+                case 'arrowright':
+                    this.keys.right = true;
+                    break;
+                case ' ':
+                    this.keys.jump = true;
+                    break;
+            }
+        });
+        
+        window.addEventListener('keyup', (e) => {
+            switch(e.key.toLowerCase()) {
+                case 'w':
+                case 'arrowup':
+                    this.keys.forward = false;
+                    break;
+                case 's':
+                case 'arrowdown':
+                    this.keys.backward = false;
+                    break;
+                case 'a':
+                case 'arrowleft':
+                    this.keys.left = false;
+                    break;
+                case 'd':
+                case 'arrowright':
+                    this.keys.right = false;
+                    break;
+                case ' ':
+                    this.keys.jump = false;
+                    break;
+            }
+        });
     }
     
     // Initialize for Babylon.js renderer
@@ -245,12 +328,67 @@ export class ChunkedScene {
         this.lastCameraChunkZ = null;
     }
     
+    // Update camera control and positioning
+    updateCamera(camera, deltaTime) {
+        if (!this.playerSphere) return;
+        
+        // Follow the player sphere from behind and above
+        const offset = new THREE.Vector3(0, 5, 15);
+        const targetPosition = new THREE.Vector3().copy(this.playerSphere.position).add(offset);
+        
+        // Smoothly move camera to follow player
+        camera.position.lerp(targetPosition, 0.1);
+        camera.lookAt(this.playerSphere.position);
+    }
+
+    // Setup day/night cycle lighting
+    setupDayNightCycle() {
+        // Create hemisphere light (sky and ground)
+        this.hemisphereLight = new THREE.HemisphereLight(0x87ceeb, 0x3a3a3a, 0.6);
+        this.threeScene.add(this.hemisphereLight);
+        
+        // Create directional light (sun)
+        this.sunLight = new THREE.DirectionalLight(0xffffee, 1.5);
+        this.sunLight.position.set(100, 100, 50);
+        this.sunLight.castShadow = config.rendering.shadows;
+        
+        // Improve shadow quality
+        this.sunLight.shadow.mapSize.width = 2048;
+        this.sunLight.shadow.mapSize.height = 2048;
+        this.sunLight.shadow.camera.near = 0.5;
+        this.sunLight.shadow.camera.far = 500;
+        this.sunLight.shadow.camera.left = -100;
+        this.sunLight.shadow.camera.right = 100;
+        this.sunLight.shadow.camera.top = 100;
+        this.sunLight.shadow.camera.bottom = -100;
+        
+        this.threeScene.add(this.sunLight);
+        
+        // Add ambient moonlight for night
+        this.moonLight = new THREE.AmbientLight(0x223344, 0.2);
+        this.threeScene.add(this.moonLight);
+        
+        // Initialize time of day
+        this.timeOfDay = config.world.timeOfDay;
+        this.dayLength = config.world.dayLength;
+        this.lastUpdate = Date.now();
+        
+        // Update lighting based on current time
+        this.updateDayNightCycle(0);
+    }
+    
     // Main update method called each frame
     update(deltaTime) {
         // Update day/night cycle
         if (config.world.dayNightCycle && this.threeScene) {
             this.updateDayNightCycle(deltaTime);
         }
+        
+        // Update player controls if available
+        this.updatePlayerControls(deltaTime);
+        
+        // Check for pickups and object collisions
+        this.checkPickups();
         
         // Get current camera position
         const cameraPosition = this.getCameraPosition();
@@ -347,9 +485,166 @@ export class ChunkedScene {
         return { x: 0, y: 0, z: 0 };
     }
     
-    // Update camera control and positioning
-    updateCamera(camera, deltaTime) {
-        // Can be overridden by subclasses to control camera
+    // Update player movement based on input
+    updatePlayerControls(deltaTime) {
+        if (!this.playerBody || !this.keys) return;
+        
+        // Get camera direction for relative movement
+        const camera = this.engine.activeEngines.renderer.getCamera();
+        const cameraDirection = new THREE.Vector3();
+        camera.getWorldDirection(cameraDirection);
+        cameraDirection.y = 0; // Keep movement on ground plane
+        cameraDirection.normalize();
+        
+        // Calculate forward and right vectors
+        const forward = cameraDirection.clone();
+        const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0));
+        
+        // Force strength
+        const forceStrength = 20 * (this.playerBody.mass / 5); // Scale with mass
+        let forceVector = new CANNON.Vec3(0, 0, 0);
+        
+        // Apply forces based on input
+        if (this.keys.forward) {
+            forceVector.x += forward.x * forceStrength;
+            forceVector.z += forward.z * forceStrength;
+        }
+        if (this.keys.backward) {
+            forceVector.x -= forward.x * forceStrength;
+            forceVector.z -= forward.z * forceStrength;
+        }
+        if (this.keys.right) {
+            forceVector.x += right.x * forceStrength;
+            forceVector.z += right.z * forceStrength;
+        }
+        if (this.keys.left) {
+            forceVector.x -= right.x * forceStrength;
+            forceVector.z -= right.z * forceStrength;
+        }
+        
+        // Apply jump if space is pressed and player is near ground
+        if (this.keys.jump && Math.abs(this.playerBody.position.y - this.playerBody.shapes[0].radius - (-5)) < 0.5) {
+            forceVector.y = forceStrength * 10;
+        }
+        
+        // Apply the force
+        this.playerBody.applyForce(forceVector, this.playerBody.position);
+    }
+    
+    // Check for objects that can be picked up
+    checkPickups() {
+        if (!this.playerBody || !this.pickupObjects) return;
+        
+        const playerRadius = this.getPlayerRadius();
+        const playerPosition = this.playerBody.position;
+        
+        // Loop through all pickup objects
+        for (let i = this.pickupObjects.length - 1; i >= 0; i--) {
+            const object = this.pickupObjects[i];
+            if (!object.body || !object.body.userData) continue;
+            
+            // Skip objects that are already attached
+            if (object.body.userData.isAttached) continue;
+            
+            // Check if object is smaller than player
+            if (object.body.userData.originalMass < this.playerBody.mass / 3) {
+                // Check distance
+                const distance = new CANNON.Vec3().copy(playerPosition).vsub(object.body.position).length();
+                
+                // If close enough, attach to player
+                if (distance < playerRadius + object.body.userData.size + 0.5) {
+                    this.attachObjectToPlayer(object);
+                }
+            }
+        }
+    }
+    
+    // Attach an object to the player
+    attachObjectToPlayer(object) {
+        if (!object || !this.playerBody) return;
+        
+        // Remove from physics world
+        if (this.engine.activeEngines.physics && this.engine.activeEngines.physics.world) {
+            this.engine.activeEngines.physics.world.removeBody(object.body);
+            
+            // Remove from bodies array
+            const index = this.engine.activeEngines.physics.bodies.indexOf(object.body);
+            if (index >= 0) {
+                this.engine.activeEngines.physics.bodies.splice(index, 1);
+            }
+        }
+        
+        // Mark as attached
+        object.body.userData.isAttached = true;
+        
+        // Increase player mass and size
+        this.playerBody.mass += object.body.userData.originalMass;
+        
+        // Update player size
+        this.increasePlayerSize(object.body.userData.originalMass);
+        
+        // Remove from pickups array
+        const pickupIndex = this.pickupObjects.findIndex(p => p.body === object.body);
+        if (pickupIndex >= 0) {
+            this.pickupObjects.splice(pickupIndex, 1);
+        }
+        
+        // Attach visual object to player
+        const offset = new THREE.Vector3(
+            (Math.random() - 0.5) * 2 * this.getPlayerRadius(),
+            (Math.random() - 0.5) * 2 * this.getPlayerRadius(),
+            (Math.random() - 0.5) * 2 * this.getPlayerRadius()
+        );
+        
+        // Normalize to surface
+        offset.normalize().multiplyScalar(this.getPlayerRadius());
+        
+        // Parent to player mesh
+        this.playerSphere.add(object.mesh);
+        
+        // Position on surface
+        object.mesh.position.copy(offset);
+        
+        // Random rotation
+        object.mesh.rotation.set(
+            Math.random() * Math.PI * 2,
+            Math.random() * Math.PI * 2,
+            Math.random() * Math.PI * 2
+        );
+        
+        // Scale down a bit
+        const scale = Math.max(0.2, object.body.userData.size / this.getPlayerRadius());
+        object.mesh.scale.set(scale, scale, scale);
+    }
+    
+    // Increase the player's size based on picked up mass
+    increasePlayerSize(addedMass) {
+        // Current radius
+        const currentRadius = this.getPlayerRadius();
+        
+        // Calculate volume increase
+        const currentVolume = (4/3) * Math.PI * Math.pow(currentRadius, 3);
+        const addedVolume = addedMass; // Simplified - mass as volume
+        const newVolume = currentVolume + addedVolume;
+        
+        // Calculate new radius
+        const newRadius = Math.pow((3 * newVolume) / (4 * Math.PI), 1/3);
+        
+        // Update player shape
+        if (this.playerBody.shapes[0] instanceof CANNON.Sphere) {
+            this.playerBody.shapes[0].radius = newRadius;
+            
+            // Update visual
+            this.playerSphere.scale.set(newRadius, newRadius, newRadius);
+        }
+    }
+    
+    // Get current player radius
+    getPlayerRadius() {
+        if (this.playerBody && this.playerBody.shapes[0] instanceof CANNON.Sphere) {
+            return this.playerBody.shapes[0].radius;
+        }
+        return 1;
     }
     
     // Update visible chunks based on camera position
