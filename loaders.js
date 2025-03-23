@@ -28,29 +28,48 @@ export class ResourceManager {
         for (let i = 0; i < urls.length; i++) {
             try {
                 const currentUrl = urls[i];
-                const result = await new Promise((resolve, reject) => {
-                    const script = document.createElement('script');
-                    script.src = currentUrl;
-                    script.async = true;
-                    
-                    script.onload = () => {
-                        console.log(`Library loaded successfully: ${name} from ${currentUrl}`);
-                        this.loadedLibraries.set(name, true);
-                        resolve(true);
-                    };
-                    
-                    script.onerror = (error) => {
-                        console.warn(`Failed to load library from: ${currentUrl}`, error);
-                        reject(new Error(`Failed to load from ${currentUrl}`));
-                    };
-                    
-                    document.head.appendChild(script);
-                });
+                let result;
+                
+                // Check if it's a module or regular script
+                const isModule = currentUrl.endsWith('.module.js') || currentUrl.includes('esm.sh/') || currentUrl.includes('skypack.dev/');
+                
+                if (isModule) {
+                    // Import as a module
+                    try {
+                        await import(currentUrl);
+                        result = true;
+                        console.log(`Module imported successfully: ${name} from ${currentUrl}`);
+                    } catch (importError) {
+                        console.warn(`Failed to import module from: ${currentUrl}`, importError);
+                        throw importError;
+                    }
+                } else {
+                    // Load as a regular script
+                    result = await new Promise((resolve, reject) => {
+                        const script = document.createElement('script');
+                        script.src = currentUrl;
+                        script.async = true;
+                        script.crossOrigin = "anonymous"; // Add CORS support
+                        
+                        script.onload = () => {
+                            console.log(`Library loaded successfully: ${name} from ${currentUrl}`);
+                            resolve(true);
+                        };
+                        
+                        script.onerror = (error) => {
+                            console.warn(`Failed to load library from: ${currentUrl}`, error.type || 'Unknown error');
+                            reject(new Error(`Failed to load from ${currentUrl}: ${error.message || 'Script loading error'}`));
+                        };
+                        
+                        document.head.appendChild(script);
+                    });
+                }
                 
                 // If we got here, the library loaded successfully
+                this.loadedLibraries.set(name, true);
                 return result;
             } catch (error) {
-                console.warn(`Attempt ${i+1}/${urls.length} failed for ${name}`);
+                console.warn(`Attempt ${i+1}/${urls.length} failed for ${name}: ${error.message || 'Unknown error'}`);
                 
                 // If this was the last attempt, throw the error
                 if (i === urls.length - 1) {
