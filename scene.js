@@ -63,6 +63,20 @@ export class ChunkedScene {
         ground.receiveShadow = true;
         
         this.threeScene.add(ground);
+
+        // Add a floating cube to demonstrate shadows
+        const cubeSize = 10;
+        const cubeGeometry = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
+        const cubeMaterial = new THREE.MeshStandardMaterial({
+            color: 0x1a75ff,
+            roughness: 0.5,
+            metalness: 0.3
+        });
+        const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+        cube.position.set(0, 20, 0);
+        cube.castShadow = true;
+        cube.receiveShadow = true;
+        this.threeScene.add(cube);
         
         // Set background
         this.threeScene.background = new THREE.Color(0x87ceeb); // Sky blue
@@ -93,6 +107,13 @@ export class ChunkedScene {
         ground.material = groundMaterial;
         ground.position.y = -5;
         ground.receiveShadows = true;
+        
+        // Add a floating cube to demonstrate shadows
+        const cube = BABYLON.MeshBuilder.CreateBox('shadowCube', {size: 10}, this.babylonScene);
+        cube.position.y = 20;
+        const cubeMaterial = new BABYLON.StandardMaterial('cubeMaterial', this.babylonScene);
+        cubeMaterial.diffuseColor = new BABYLON.Color3(0.1, 0.45, 1.0); // Blue color
+        cube.material = cubeMaterial;
         
         // Set skybox
         const skybox = BABYLON.MeshBuilder.CreateBox('skyBox', { size: 1000 }, this.babylonScene);
@@ -464,4 +485,3 @@ export class ChunkedScene {
         }
     }
 }
-

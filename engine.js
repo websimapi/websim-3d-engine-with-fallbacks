@@ -667,6 +667,22 @@ class ThreeRenderer {
             if (this.renderer.shadowMap.enabled) {
                 this.renderer.shadowMap.needsUpdate = true;
             }
+
+            // Update all meshes
+            if (this.scene) {
+                this.scene.traverse(obj => {
+                    if (obj.isMesh) {
+                        // Preserve previous settings if available
+                        if (obj.userData.castShadow !== undefined) {
+                            obj.castShadow = settings.shadows ? obj.userData.castShadow : false;
+                        } else {
+                            // Store the original setting
+                            obj.userData.castShadow = obj.castShadow;
+                            obj.castShadow = settings.shadows ? obj.userData.castShadow : false;
+                        }
+                    }
+                });
+            }
         }
         
         if (settings.pixelRatio !== undefined && this.renderer) {
