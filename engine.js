@@ -898,6 +898,11 @@ class CannonPhysics {
     
     async initialize() {
         try {
+            // Check if CANNON is defined
+            if (typeof CANNON === 'undefined') {
+                throw new Error('CANNON is not defined. Make sure cannon.min.js is loaded properly.');
+            }
+            
             // Initialize Cannon world
             this.world = new CANNON.World();
             this.world.gravity.set(

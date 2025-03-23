@@ -28,6 +28,14 @@ export class ResourceManager {
         for (let i = 0; i < urls.length; i++) {
             try {
                 const currentUrl = urls[i];
+                
+                // Skip loading cannon-es if it's already available (loaded via script tag)
+                if (name === 'cannon-es' && typeof CANNON !== 'undefined') {
+                    console.log(`Library ${name} already available, skipping load`);
+                    this.loadedLibraries.set(name, true);
+                    return true;
+                }
+                
                 const result = await new Promise((resolve, reject) => {
                     const script = document.createElement('script');
                     script.src = currentUrl;
